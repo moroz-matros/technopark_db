@@ -20,7 +20,6 @@ func NewServer() *Server {
 
 	e := echo.New()
 
-
 	pool, err := pgxpool.Connect(context.Background(), constants.DBConnect)
 	if err != nil {
 		log.Fatal(err)
@@ -36,6 +35,7 @@ func NewServer() *Server {
 
 	http.CreateForumHandler(e, uc)
 
+	server.e = e
 	return &server
 }
 
