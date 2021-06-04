@@ -55,7 +55,7 @@ type CustomError struct {
 }
 
 type Post struct {
-	Id       int64  `json:"number"`
+	Id       int64  `json:"id"`
 	Parent   int64  `json:"parent"`
 	Author   string `json:"author"`
 	Message  string `json:"message"`
@@ -63,10 +63,11 @@ type Post struct {
 	Forum    string `json:"forum"`
 	Thread   int32  `json:"thread"`
 	Created  time.Time `json:"created"`
+	Path string `json:"path"`
 }
 
 //easyjson:json
-type Posts []Post
+type Posts []*Post
 
 type PostUpdate struct {
 	Message string `json:"message"`
@@ -74,10 +75,11 @@ type PostUpdate struct {
 
 type PostFull struct {
 	Post   Post   `json:"post"`
-	Author User   `json:"author"`
-	Thread Thread `json:"thread"`
-	Forum  Forum   `json:"forum"`
+	Author *User   `json:"author,omitempty"`
+	Thread *Thread `json:"thread,omitempty"`
+	Forum  *Forum   `json:"forum,omitempty"`
 }
+
 
 type Vote struct {
 	Nickname string `json:"nickname"`

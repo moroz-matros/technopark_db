@@ -3,7 +3,6 @@ package usecase
 import (
 	forum "github.com/moroz-matros/technopark_db/application/app"
 	"github.com/moroz-matros/technopark_db/application/app/models"
-	"net/http"
 	"strings"
 	"time"
 )
@@ -28,7 +27,7 @@ func (f ForumUC) CreateForum(forum *models.Forum) (models.Forum, *models.CustomE
 		}
 	}
 
-	_, flag, err = f.repo.CheckForumBySlug(forum.Slug)
+	_, _, flag, err = f.repo.CheckForumBySlug(forum.Slug)
 	if err != nil {
 		return models.Forum{}, err
 	}
@@ -57,12 +56,12 @@ func (f ForumUC) GetForum(slug string) (models.Forum, *models.CustomError) {
 	if err != nil {
 		return frm, err
 	}
-	count, err := f.repo.CountPosts(frm.Id)
+	count, err := f.repo.CountPosts(frm.Slug)
 	if err != nil {
 		return frm, err
 	}
 	frm.Posts = int64(count)
-	cnt, err := f.repo.CountThreads(frm.Id)
+	cnt, err := f.repo.CountThreads(frm.Slug)
 	if err != nil {
 		return frm, err
 	}
@@ -71,8 +70,8 @@ func (f ForumUC) GetForum(slug string) (models.Forum, *models.CustomError) {
 	return frm, nil
 }
 
-func (f ForumUC) GetThreadDetails(id int64, params string) (models.PostFull, *models.CustomError) {
-	var answer models.PostFull
+func (f ForumUC) GetPostDetails(id int64, params string) (models.PostFull, *models.CustomError) {
+	answer := models.PostFull{}
 
 	post, err := f.repo.GetPostById(id)
 	if err != nil {
@@ -84,28 +83,36 @@ func (f ForumUC) GetThreadDetails(id int64, params string) (models.PostFull, *mo
 		if err != nil {
 			return models.PostFull{}, err
 		}
-		answer.Author = user
+		answer.Author = &user
 	}
 	if strings.Contains(params, "forum") {
 		frm, err := f.repo.GetForumByPost(id)
 		if err != nil {
 			return models.PostFull{}, err
 		}
-		answer.Forum = frm
+		frm.Posts, err = f.repo.CountPosts(frm.Slug)
+		frm.Threads, err = f.repo.CountThreads(frm.Slug)
+		answer.Forum = &frm
 	}
 	if strings.Contains(params, "thread") {
 		thread, err := f.repo.GetThreadByPost(id)
 		if err != nil {
 			return models.PostFull{}, err
 		}
-		answer.Thread = thread
+		votes, err := f.repo.GetVotes(thread.Id)
+
+		if err != nil {
+			return models.PostFull{}, err
+		}
+		thread.Votes = votes
+		answer.Thread = &thread
 	}
 
 	return answer, nil
 }
 
 func (f ForumUC) GetForumThreads(slug string, limit int, since time.Time, desc bool) (models.Threads, *models.CustomError) {
-	_, flag, err := f.repo.CheckForumBySlug(slug)
+	_, _, flag, err := f.repo.CheckForumBySlug(slug)
 	if err != nil {
 		return models.Threads{}, err
 	}
@@ -120,7 +127,7 @@ func (f ForumUC) GetForumThreads(slug string, limit int, since time.Time, desc b
 }
 
 func (f ForumUC) GetForumUsers(slug string, limit int, since string, desc bool) (models.Users, *models.CustomError) {
-	_, flag, err := f.repo.CheckForumBySlug(slug)
+	_, _, flag, err := f.repo.CheckForumBySlug(slug)
 	if err != nil {
 		return models.Users{}, err
 	}
@@ -145,7 +152,8 @@ func (f ForumUC) CreateThread(thread models.Thread) (models.Thread, *models.Cust
 			Message: "author or thread not found",
 		}
 	}
-	_, flag, err = f.repo.CheckForumBySlug(thread.Forum)
+	var forumSlug string
+	_, forumSlug, flag, err = f.repo.CheckForumBySlug(thread.Forum)
 	if err != nil {
 		return thread, err
 	}
@@ -156,15 +164,25 @@ func (f ForumUC) CreateThread(thread models.Thread) (models.Thread, *models.Cust
 		}
 	}
 	thread.Author = nickname
+	thread.Forum = forumSlug
+
+	if thread.Slug != "" {
+		thread2, e := f.repo.GetThread(thread.Slug)
+		if e == nil {
+			return thread2, &models.CustomError{
+				Code:    409,
+				Message: "thread already exists",
+			}
+		}
+		if e.Code != 404 {
+			return models.Thread{}, e
+		}
+	}
+
+
 	thread, err = f.repo.CreateThread(thread, thread.Created)
 	if err != nil {
-		if err.Code == 409 {
-			thread, err2 := f.repo.GetThread(thread.Slug)
-			if err2 != nil {
-				return thread, err2
-			}
-			return thread, err
-		}
+		return thread, err
 	}
 
 	return thread, nil
@@ -183,29 +201,13 @@ func (f ForumUC) GetServiceInfo() (models.Status, *models.CustomError) {
 }
 
 func (f ForumUC) AddPosts(posts models.Posts, slugOrId string) (models.Posts, *models.CustomError) {
-	//lastId, err := f.repo.GetLastPostInThread(slugOrId)
-	//if err != nil {
-	//	return models.Posts{}, err
-	//}
-	/*id, e := strconv.Atoi(slugOrId)
-	idd := int32(id)
-	log.Println(slugOrId)
-	if e != nil {
-		thread, err := f.repo.GetThread(slugOrId)
-		log.Println(thread.Id, err)
-		if err != nil {
-			return posts, err
-		}
-		idd = thread.Id
-	}
-
-	 */
 	thread, err := f.GetThreadBySlugOrId(slugOrId)
 	if err != nil {
 		return posts, err
 	}
 	for _, elem := range posts {
 		elem.Thread = thread.Id
+		elem.Forum = thread.Forum
 	}
 
 	posts, err = f.repo.AddPosts(posts, slugOrId)
@@ -217,7 +219,16 @@ func (f ForumUC) AddPosts(posts models.Posts, slugOrId string) (models.Posts, *m
 }
 
 func (f ForumUC) GetThreadBySlugOrId(slugOrId string) (models.Thread, *models.CustomError) {
-	return f.repo.GetThreadBySlugOrId(slugOrId)
+	t, err := f.repo.GetThreadBySlugOrId(slugOrId)
+	if err != nil {
+		return models.Thread{}, err
+	}
+	votes, err := f.repo.GetVotes(t.Id)
+	if err != nil {
+		return models.Thread{}, err
+	}
+	t.Votes = votes
+	return t, nil
 }
 
 func (f ForumUC) UpdateThread(thread models.ThreadUpdate, slugOrId string) (models.Thread, *models.CustomError) {
@@ -230,16 +241,34 @@ func (f ForumUC) AddVote(vote models.Vote, slugOrId string) (models.Thread, *mod
 		return models.Thread{}, err
 	}
 
-	err = f.repo.AddVote(vote, thread.Id)
-	if err != nil && err.Code == http.StatusConflict {
+	name, flag, err := f.repo.CheckVote(vote.Nickname, thread.Id)
+	if err != nil {
+		return models.Thread{}, err
+	}
+	if flag {
+		vote.Nickname = name
 		err = f.repo.UpdateVote(vote, thread.Id)
 		if err != nil {
 			return models.Thread{}, err
 		}
+	} else {
+		_, _, flag, err = f.repo.CheckUser(vote.Nickname)
+		if err != nil {
+			return models.Thread{}, err
+		}
+		if !flag {
+			return models.Thread{}, &models.CustomError{
+				Code:    404,
+				Message: "user does not exist",
+			}
+		}
+		err = f.repo.AddVote(vote, thread.Id)
+		if err != nil {
+			return models.Thread{}, err
+		}
 	}
-	if err != nil {
-		return models.Thread{}, err
-	}
+
+
 	voices, err := f.repo.GetVotes(thread.Id)
 	if err != nil {
 		return models.Thread{}, err
@@ -323,31 +352,28 @@ func (f ForumUC) UpdateUser(nickname string, update models.UserUpdate) (models.U
 	return user, nil
 }
 
-/*
+
 func (f ForumUC) GetPosts(slugOrId string, limit int, since int64, desc bool, sort string) (models.Posts, *models.CustomError) {
 	var posts models.Posts
+	_, err := f.repo.GetThreadBySlugOrId(slugOrId)
+	if err != nil {
+		return models.Posts{}, err
+	}
 	if sort == "flat" {
 		return f.repo.GetPostsFlat(slugOrId, limit, since, desc)
 	}
 	if sort == "tree" {
-		if desc == false {
-			post, err := f.repo.GetPostWithSince(since)
-			if err != nil {
-				return posts, err
-			}
-			posts = append(posts, post)
-			for i := 1; i < limit; i++ {
-				post, err = f.repo.GetPostByParentId(post.Id)
-				if err != nil && err.Code == 404 {
-
-				}
-			}
-
-		}
+		return f.repo.GetPostsTree(slugOrId, limit, since, desc)
 	}
 	if sort == "parent_tree" {
+		parents, err := f.repo.GetPostsParent(slugOrId, limit, since, desc)
+		if err != nil {
+			return posts, err
+		}
+		return f.repo.GetPostsChild(slugOrId, desc, parents)
 
 	}
+	return posts, nil
 }
 
-*/
+

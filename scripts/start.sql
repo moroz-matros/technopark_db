@@ -30,7 +30,7 @@ create table if not exists threads (
 
 create table if not exists posts (
     id bigserial primary key,
-    parent_id bigint references posts (id) on delete cascade,
+    parent bigint not null,
     author varchar(60) not null,
     message text not null,
     is_edited boolean not null,
@@ -44,7 +44,7 @@ CREATE OR REPLACE FUNCTION update_posts()
   $$
     BEGIN
     NEW.path = CONCAT(
-        CASE WHEN IFNULL(, '0'), '.', New.id);
+        coalesce((select path from posts where id = NEW.parent), '0'), '.', New.id);
     RETURN NEW;
     END;
   $$
@@ -55,7 +55,7 @@ CREATE TRIGGER set_path BEFORE INSERT ON posts
     FOR EACH ROW
     EXECUTE PROCEDURE update_posts();
 
-create type state as enum ('-1', '+1');
+create type state as enum ('-1', '1');
 
 create table if not exists votes (
     thread_id bigint references threads (id) on delete cascade,

@@ -7,11 +7,11 @@ import (
 
 type Repository interface {
 	CreateForum(forum *models.Forum) *models.CustomError
-	CheckForumBySlug(slug string) (int32, bool, *models.CustomError)
+	CheckForumBySlug(slug string) (int32, string, bool, *models.CustomError)
 	CheckUser(nickname string) (string, int32, bool, *models.CustomError)
 	GetForum(slug string) (models.Forum, *models.CustomError)
-	CountPosts(forumId uint64) (uint64, *models.CustomError)
-	CountThreads(forumId uint64) (int32, *models.CustomError)
+	CountPosts(frm string) (int64, *models.CustomError)
+	CountThreads(frm string) (int32, *models.CustomError)
 	CreateThread(thread models.Thread, data time.Time) (models.Thread, *models.CustomError)
 	GetThread(slug string) (models.Thread, *models.CustomError)
 	GetForumUsers(slug string, limit int, since string, desc bool) (models.Users, *models.CustomError)
@@ -34,7 +34,10 @@ type Repository interface {
 	ReturnUsers(nickname string, email string) (models.Users, *models.CustomError)
 	GetUser(nickname string) (models.User, *models.CustomError)
 	UpdateUser(nickname string, update models.UserUpdate) *models.CustomError
-	//GetPostsFlat(slugOrId string, limit int, since int64, desc bool) (models.Posts, *models.CustomError)
-	//GetPostsTree(slugOrId string, limit int, since int64, desc bool) (models.Posts, *models.CustomError)
-	//GetPostsParentTree(slugOrId string, limit int, since int64, desc bool) (models.Posts, *models.CustomError)
+	CheckVote(nickname string, threadId int32) (string, bool, *models.CustomError)
+	GetPostsFlat(slugOrId string, limit int, since int64, desc bool) (models.Posts, *models.CustomError)
+	GetPostsTree(slugOrId string, limit int, since int64, desc bool) (models.Posts, *models.CustomError)
+	GetPostsParent(slugOrId string, limit int, since int64, desc bool) (models.Posts, *models.CustomError)
+	GetPostsChild(slugOrId string, desc bool, posts models.Posts)(models.Posts, *models.CustomError)
+	CheckParentPost(threadId int32, postId int64) (bool, *models.CustomError)
 }

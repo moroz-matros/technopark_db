@@ -11,7 +11,7 @@ type Usecase interface {
 	CreateThread(thread models.Thread) (models.Thread, *models.CustomError)
 	GetForumUsers(slug string, limit int, since string, desc bool) (models.Users, *models.CustomError)
 	GetForumThreads(slug string, limit int, since time.Time, desc bool) (models.Threads, *models.CustomError)
-	GetThreadDetails(id int64, params string) (models.PostFull, *models.CustomError)
+	GetPostDetails(id int64, params string) (models.PostFull, *models.CustomError)
 	UpdatePost(postId int64, newPost models.PostUpdate) (models.Post, *models.CustomError)
 	ClearDatabase() *models.CustomError
 	GetServiceInfo() (models.Status, *models.CustomError)
@@ -22,6 +22,6 @@ type Usecase interface {
 	AddUser(user models.User, nickname string) (*models.User, *models.Users, *models.CustomError)
 	GetUser(nickname string) (models.User, *models.CustomError)
 	UpdateUser(nickname string, update models.UserUpdate) (models.User, *models.CustomError)
-	//GetPosts(slugOrId string, limit int, since int64, desc bool, sort string) (models.Posts, *models.CustomError)
+	GetPosts(slugOrId string, limit int, since int64, desc bool, sort string) (models.Posts, *models.CustomError)
 
 }

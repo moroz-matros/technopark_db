@@ -675,7 +675,7 @@ func easyjsonD2b7633eDecodeGithubComMorozMatrosTechnoparkDbApplicationAppModels8
 		in.Delim('[')
 		if *out == nil {
 			if !in.IsDelim(']') {
-				*out = make(Posts, 0, 0)
+				*out = make(Posts, 0, 8)
 			} else {
 				*out = Posts{}
 			}
@@ -683,8 +683,16 @@ func easyjsonD2b7633eDecodeGithubComMorozMatrosTechnoparkDbApplicationAppModels8
 			*out = (*out)[:0]
 		}
 		for !in.IsDelim(']') {
-			var v7 Post
-			(v7).UnmarshalEasyJSON(in)
+			var v7 *Post
+			if in.IsNull() {
+				in.Skip()
+				v7 = nil
+			} else {
+				if v7 == nil {
+					v7 = new(Post)
+				}
+				(*v7).UnmarshalEasyJSON(in)
+			}
 			*out = append(*out, v7)
 			in.WantComma()
 		}
@@ -703,7 +711,11 @@ func easyjsonD2b7633eEncodeGithubComMorozMatrosTechnoparkDbApplicationAppModels8
 			if v8 > 0 {
 				out.RawByte(',')
 			}
-			(v9).MarshalEasyJSON(out)
+			if v9 == nil {
+				out.RawString("null")
+			} else {
+				(*v9).MarshalEasyJSON(out)
+			}
 		}
 		out.RawByte(']')
 	}
@@ -820,11 +832,35 @@ func easyjsonD2b7633eDecodeGithubComMorozMatrosTechnoparkDbApplicationAppModels1
 		case "post":
 			(out.Post).UnmarshalEasyJSON(in)
 		case "author":
-			(out.Author).UnmarshalEasyJSON(in)
+			if in.IsNull() {
+				in.Skip()
+				out.Author = nil
+			} else {
+				if out.Author == nil {
+					out.Author = new(User)
+				}
+				(*out.Author).UnmarshalEasyJSON(in)
+			}
 		case "thread":
-			(out.Thread).UnmarshalEasyJSON(in)
+			if in.IsNull() {
+				in.Skip()
+				out.Thread = nil
+			} else {
+				if out.Thread == nil {
+					out.Thread = new(Thread)
+				}
+				(*out.Thread).UnmarshalEasyJSON(in)
+			}
 		case "forum":
-			(out.Forum).UnmarshalEasyJSON(in)
+			if in.IsNull() {
+				in.Skip()
+				out.Forum = nil
+			} else {
+				if out.Forum == nil {
+					out.Forum = new(Forum)
+				}
+				(*out.Forum).UnmarshalEasyJSON(in)
+			}
 		default:
 			in.SkipRecursive()
 		}
@@ -844,20 +880,20 @@ func easyjsonD2b7633eEncodeGithubComMorozMatrosTechnoparkDbApplicationAppModels1
 		out.RawString(prefix[1:])
 		(in.Post).MarshalEasyJSON(out)
 	}
-	{
+	if in.Author != nil {
 		const prefix string = ",\"author\":"
 		out.RawString(prefix)
-		(in.Author).MarshalEasyJSON(out)
+		(*in.Author).MarshalEasyJSON(out)
 	}
-	{
+	if in.Thread != nil {
 		const prefix string = ",\"thread\":"
 		out.RawString(prefix)
-		(in.Thread).MarshalEasyJSON(out)
+		(*in.Thread).MarshalEasyJSON(out)
 	}
-	{
+	if in.Forum != nil {
 		const prefix string = ",\"forum\":"
 		out.RawString(prefix)
-		(in.Forum).MarshalEasyJSON(out)
+		(*in.Forum).MarshalEasyJSON(out)
 	}
 	out.RawByte('}')
 }
@@ -904,7 +940,7 @@ func easyjsonD2b7633eDecodeGithubComMorozMatrosTechnoparkDbApplicationAppModels1
 			continue
 		}
 		switch key {
-		case "number":
+		case "id":
 			out.Id = int64(in.Int64())
 		case "parent":
 			out.Parent = int64(in.Int64())
@@ -922,6 +958,8 @@ func easyjsonD2b7633eDecodeGithubComMorozMatrosTechnoparkDbApplicationAppModels1
 			if data := in.Raw(); in.Ok() {
 				in.AddError((out.Created).UnmarshalJSON(data))
 			}
+		case "path":
+			out.Path = string(in.String())
 		default:
 			in.SkipRecursive()
 		}
@@ -937,7 +975,7 @@ func easyjsonD2b7633eEncodeGithubComMorozMatrosTechnoparkDbApplicationAppModels1
 	first := true
 	_ = first
 	{
-		const prefix string = ",\"number\":"
+		const prefix string = ",\"id\":"
 		out.RawString(prefix[1:])
 		out.Int64(int64(in.Id))
 	}
@@ -975,6 +1013,11 @@ func easyjsonD2b7633eEncodeGithubComMorozMatrosTechnoparkDbApplicationAppModels1
 		const prefix string = ",\"created\":"
 		out.RawString(prefix)
 		out.Raw((in.Created).MarshalJSON())
+	}
+	{
+		const prefix string = ",\"path\":"
+		out.RawString(prefix)
+		out.String(string(in.Path))
 	}
 	out.RawByte('}')
 }
