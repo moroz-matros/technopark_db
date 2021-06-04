@@ -5,6 +5,8 @@
 *.so
 *.dylib
 .idea
+technopark-dbms-forum
+*.html
 
 # Test binary, built with `go test -c`
 *.test

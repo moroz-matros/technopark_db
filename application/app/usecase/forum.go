@@ -3,14 +3,13 @@ package usecase
 import (
 	forum "github.com/moroz-matros/technopark_db/application/app"
 	"github.com/moroz-matros/technopark_db/application/app/models"
-	"github.com/moroz-matros/technopark_db/pkg/constants"
 	"net/http"
 	"strings"
 	"time"
 )
 
 type ForumUC struct {
-	repo    forum.Repository
+	repo forum.Repository
 }
 
 func NewForum(repoDatabase forum.Repository) forum.Usecase {
@@ -18,7 +17,7 @@ func NewForum(repoDatabase forum.Repository) forum.Usecase {
 }
 
 func (f ForumUC) CreateForum(forum *models.Forum) (models.Forum, *models.CustomError) {
-	_, flag, err := f.repo.CheckUser(forum.User)
+	nickname, _, flag, err := f.repo.CheckUser(forum.User)
 	if err != nil {
 		return models.Forum{}, err
 	}
@@ -34,11 +33,16 @@ func (f ForumUC) CreateForum(forum *models.Forum) (models.Forum, *models.CustomE
 		return models.Forum{}, err
 	}
 	if flag {
-		return models.Forum{}, &models.CustomError{
+		frm, err := f.repo.GetForum(forum.Slug)
+		if err != nil {
+			return models.Forum{}, err
+		}
+		return frm, &models.CustomError{
 			Code:    409,
 			Message: "forum already exists",
 		}
 	}
+	forum.User = nickname
 
 	err = f.repo.CreateForum(forum)
 	if err != nil {
@@ -131,8 +135,7 @@ func (f ForumUC) GetForumUsers(slug string, limit int, since string, desc bool) 
 }
 
 func (f ForumUC) CreateThread(thread models.Thread) (models.Thread, *models.CustomError) {
-	data, _ := time.Parse(constants.Time, thread.Created)
-	_, flag, err := f.repo.CheckUser(thread.Author)
+	nickname, _, flag, err := f.repo.CheckUser(thread.Author)
 	if err != nil {
 		return thread, err
 	}
@@ -152,7 +155,8 @@ func (f ForumUC) CreateThread(thread models.Thread) (models.Thread, *models.Cust
 			Message: "author or thread not found",
 		}
 	}
-	err = f.repo.CreateThread(thread, data)
+	thread.Author = nickname
+	thread, err = f.repo.CreateThread(thread, thread.Created)
 	if err != nil {
 		if err.Code == 409 {
 			thread, err2 := f.repo.GetThread(thread.Slug)
@@ -179,11 +183,32 @@ func (f ForumUC) GetServiceInfo() (models.Status, *models.CustomError) {
 }
 
 func (f ForumUC) AddPosts(posts models.Posts, slugOrId string) (models.Posts, *models.CustomError) {
-	lastId, err := f.repo.GetLastPostInThread(slugOrId)
-	if err != nil {
-		return models.Posts{}, err
+	//lastId, err := f.repo.GetLastPostInThread(slugOrId)
+	//if err != nil {
+	//	return models.Posts{}, err
+	//}
+	/*id, e := strconv.Atoi(slugOrId)
+	idd := int32(id)
+	log.Println(slugOrId)
+	if e != nil {
+		thread, err := f.repo.GetThread(slugOrId)
+		log.Println(thread.Id, err)
+		if err != nil {
+			return posts, err
+		}
+		idd = thread.Id
 	}
-	posts, err = f.repo.AddPosts(posts, slugOrId, lastId)
+
+	 */
+	thread, err := f.GetThreadBySlugOrId(slugOrId)
+	if err != nil {
+		return posts, err
+	}
+	for _, elem := range posts {
+		elem.Thread = thread.Id
+	}
+
+	posts, err = f.repo.AddPosts(posts, slugOrId)
 	if err != nil {
 		return models.Posts{}, err
 	}
@@ -226,14 +251,21 @@ func (f ForumUC) AddVote(vote models.Vote, slugOrId string) (models.Thread, *mod
 
 func (f ForumUC) AddUser(user models.User, nickname string) (*models.User, *models.Users, *models.CustomError) {
 	user.Nickname = nickname
-	u, err := f.repo.AddUser(user)
-	if err != nil && err.Code == http.StatusConflict {
-		users, e := f.repo.ReturnUsers(user.Nickname, user.Email)
-		if e != nil {
-			return nil, nil, e
-		}
+	users, err := f.repo.ReturnUsers(user.Nickname, user.Email)
+	if users != nil {
 		return nil, &users, err
 	}
+	if err != nil {
+		return nil, nil, err
+	}
+	u, err := f.repo.AddUser(user)
+	//if err != nil && err.Code == http.StatusConflict {
+	//	users, e := f.repo.ReturnUsers(user.Nickname, user.Email)
+	//	if e != nil {
+	//		return nil, nil, e
+	//	}
+	//	return nil, &users, err
+	//}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -245,11 +277,43 @@ func (f ForumUC) GetUser(nickname string) (models.User, *models.CustomError) {
 }
 
 func (f ForumUC) UpdateUser(nickname string, update models.UserUpdate) (models.User, *models.CustomError) {
-	err := f.repo.UpdateUser(nickname, update)
+	user, err := f.repo.GetUser(nickname)
+	flag := true
 	if err != nil {
 		return models.User{}, err
 	}
-	user := models.User{
+	count := 0
+	if len(update.Fullname) == 0 {
+		update.Fullname = user.Fullname
+		count +=1
+	}
+	if len(update.Email) == 0 {
+		flag = false
+		update.Email = user.Email
+		count +=1
+	}
+	if len(update.About) == 0 {
+		update.About = user.About
+		count +=1
+	}
+	if count == 3 {
+		return user, nil
+	}
+	if flag {
+		users, err := f.repo.ReturnUsers("", update.Email)
+		if users != nil {
+			return models.User{}, err
+		}
+		if err != nil {
+			return models.User{}, err
+		}
+	}
+
+	err = f.repo.UpdateUser(nickname, update)
+	if err != nil {
+		return models.User{}, err
+	}
+	user = models.User{
 		Nickname: nickname,
 		Fullname: update.Fullname,
 		About:    update.About,
@@ -286,4 +350,4 @@ func (f ForumUC) GetPosts(slugOrId string, limit int, since int64, desc bool, so
 	}
 }
 
- */
+*/

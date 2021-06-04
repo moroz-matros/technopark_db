@@ -496,7 +496,9 @@ func easyjsonD2b7633eDecodeGithubComMorozMatrosTechnoparkDbApplicationAppModels6
 		case "slug":
 			out.Slug = string(in.String())
 		case "created":
-			out.Created = string(in.String())
+			if data := in.Raw(); in.Ok() {
+				in.AddError((out.Created).UnmarshalJSON(data))
+			}
 		default:
 			in.SkipRecursive()
 		}
@@ -549,7 +551,7 @@ func easyjsonD2b7633eEncodeGithubComMorozMatrosTechnoparkDbApplicationAppModels6
 	{
 		const prefix string = ",\"created\":"
 		out.RawString(prefix)
-		out.String(string(in.Created))
+		out.Raw((in.Created).MarshalJSON())
 	}
 	out.RawByte('}')
 }
@@ -917,7 +919,9 @@ func easyjsonD2b7633eDecodeGithubComMorozMatrosTechnoparkDbApplicationAppModels1
 		case "thread":
 			out.Thread = int32(in.Int32())
 		case "created":
-			out.Created = string(in.String())
+			if data := in.Raw(); in.Ok() {
+				in.AddError((out.Created).UnmarshalJSON(data))
+			}
 		default:
 			in.SkipRecursive()
 		}
@@ -970,7 +974,7 @@ func easyjsonD2b7633eEncodeGithubComMorozMatrosTechnoparkDbApplicationAppModels1
 	{
 		const prefix string = ",\"created\":"
 		out.RawString(prefix)
-		out.String(string(in.Created))
+		out.Raw((in.Created).MarshalJSON())
 	}
 	out.RawByte('}')
 }

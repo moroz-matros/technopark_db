@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type User struct {
 	Nickname string `json:"nickname"`
 	Fullname string `json:"fullname"`
@@ -32,7 +34,7 @@ type Thread struct {
 	Message string `json:"message"`
 	Votes   int32  `json:"votes"`
 	Slug    string `json:"slug"`
-	Created string `json:"created"`
+	Created time.Time `json:"created"`
 }
 
 //easyjson:json
@@ -60,7 +62,7 @@ type Post struct {
 	IsEdited bool   `json:"isEdited"`
 	Forum    string `json:"forum"`
 	Thread   int32  `json:"thread"`
-	Created  string `json:"created"`
+	Created  time.Time `json:"created"`
 }
 
 //easyjson:json

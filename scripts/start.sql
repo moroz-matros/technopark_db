@@ -13,19 +13,19 @@ create table if not exists users
 
 create table if not exists forums (
     id bigserial primary key,
-    title varchar(60) not null,
+    title text not null,
     u varchar(60) not null,
     slug varchar(60) not null
 );
 
 create table if not exists threads (
     id bigserial primary key,
-    title varchar(60) not null,
+    title text not null,
     slug varchar(60) not null,
     message text not null,
     author varchar(60) not null,
     forum varchar(60) not null,
-    created date
+    created timestamp with time zone
 );
 
 create table if not exists posts (
@@ -36,14 +36,15 @@ create table if not exists posts (
     is_edited boolean not null,
     forum varchar(60) not null,
     thread bigint references threads (id) on delete cascade,
-    created date,
+    created timestamp with time zone,
     path text
 );
 CREATE OR REPLACE FUNCTION update_posts()
     RETURNS trigger AS
   $$
     BEGIN
-    NEW.path = CONCAT(IFNULL((select path from posts where id = NEW.parent_id), '0'), '.', New.id);
+    NEW.path = CONCAT(
+        CASE WHEN IFNULL(, '0'), '.', New.id);
     RETURN NEW;
     END;
   $$

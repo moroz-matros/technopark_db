@@ -8,11 +8,11 @@ import (
 type Repository interface {
 	CreateForum(forum *models.Forum) *models.CustomError
 	CheckForumBySlug(slug string) (int32, bool, *models.CustomError)
-	CheckUser(nickname string) (int32, bool, *models.CustomError)
+	CheckUser(nickname string) (string, int32, bool, *models.CustomError)
 	GetForum(slug string) (models.Forum, *models.CustomError)
 	CountPosts(forumId uint64) (uint64, *models.CustomError)
 	CountThreads(forumId uint64) (int32, *models.CustomError)
-	CreateThread(thread models.Thread, data time.Time) *models.CustomError
+	CreateThread(thread models.Thread, data time.Time) (models.Thread, *models.CustomError)
 	GetThread(slug string) (models.Thread, *models.CustomError)
 	GetForumUsers(slug string, limit int, since string, desc bool) (models.Users, *models.CustomError)
 	GetForumThreads(slug string, limit int, since time.Time, desc bool) (models.Threads, *models.CustomError)
@@ -23,7 +23,7 @@ type Repository interface {
 	UpdatePost(postId int64, newPost models.PostUpdate) (models.Post, *models.CustomError)
 	ClearAll() *models.CustomError
 	GetServiceInfo() (models.Status, *models.CustomError)
-	AddPosts(posts models.Posts, slugOrId string, lastId int64) (models.Posts, *models.CustomError)
+	AddPosts(posts models.Posts, slugOrId string) (models.Posts, *models.CustomError)
 	GetLastPostInThread(slugOrId string) (int64, *models.CustomError)
 	GetThreadBySlugOrId(slugOrId string) (models.Thread, *models.CustomError)
 	UpdateThread(thread models.ThreadUpdate, slugOrId string) (models.Thread, *models.CustomError)
