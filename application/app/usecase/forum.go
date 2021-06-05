@@ -207,12 +207,8 @@ func (f ForumUC) AddPosts(posts models.Posts, slugOrId string) (models.Posts, *m
 	if err != nil {
 		return posts, err
 	}
-	for _, elem := range posts {
-		elem.Thread = thread.Id
-		elem.Forum = thread.Forum
-	}
 
-	posts, err = f.repo.AddPosts(posts, slugOrId)
+	posts, err = f.repo.AddPosts(posts, thread.Id, thread.Forum)
 	if err != nil {
 		return models.Posts{}, err
 	}

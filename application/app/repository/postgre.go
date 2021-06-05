@@ -9,10 +9,8 @@ import (
 	"github.com/jackc/pgx/pgxpool"
 	forum "github.com/moroz-matros/technopark_db/application/app"
 	"github.com/moroz-matros/technopark_db/application/app/models"
-	"log"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -83,19 +81,19 @@ func (d Database) GetPostsParent(slugOrId string, limit int, since int64, desc b
 				`SELECT p.id, p.parent, p.author, p.message, 
 		p.is_edited, p.forum, p.thread, p.created, p.path
 		FROM posts p 
-		JOIN threads t ON lower(t.slug) = $1 AND p.thread = t.id
+		JOIN threads t ON t.slug = $1 AND p.thread = t.id
 		WHERE p.parent = '0'
 		ORDER BY p.path ` + order +`, p.created ` + order +`, p.id ASC`  +
-					` LIMIT $2   `, strings.ToLower(slug), limit)
+					` LIMIT $2   `, slug, limit)
 		} else {
 			err = pgxscan.Select(context.Background(), d.pool, &posts,
 				`SELECT p.id, p.parent, p.author, p.message, 
 		p.is_edited, p.forum, p.thread, p.created, p.path
 		FROM posts p 
-		JOIN threads t ON lower(t.slug) = $1 AND p.thread = t.id
+		JOIN threads t ON t.slug = $1 AND p.thread = t.id
 		WHERE p.parent = '0' and p.path `+ s + `(SELECT path FROM posts where id = $2) AND (SELECT POSITION(path IN (SELECT path FROM posts where id = $2))) = '0'
 		ORDER BY p.path ` + order +`, p.created ` + order +`, p.id ASC`  +
-					` LIMIT $3   `, strings.ToLower(slug), since, limit)
+					` LIMIT $3   `, slug, since, limit)
 		}
 
 	}
@@ -195,18 +193,18 @@ func (d Database) GetPostsFlat(slugOrId string, limit int, since int64, desc boo
 				`SELECT p.id, p.parent, p.author, p.message, 
 		p.is_edited, p.forum, p.thread, p.created
 		FROM posts p 
-		JOIN threads t ON lower(t.slug) = $1 AND p.thread = t.id
+		JOIN threads t ON t.slug = $1 AND p.thread = t.id
 		ORDER BY created ` + order +` , p.id ` + order +
-					` LIMIT $2   `, strings.ToLower(slug), limit)
+					` LIMIT $2   `, slug, limit)
 		} else {
 			err = pgxscan.Select(context.Background(), d.pool, &posts,
 				`SELECT p.id, p.parent, p.author, p.message, 
 		p.is_edited, p.forum, p.thread, p.created
 		FROM posts p 
-		JOIN threads t ON lower(t.slug) = $1 AND p.thread = t.id
+		JOIN threads t ON t.slug = $1 AND p.thread = t.id
 		WHERE p.id `+s+` $2
 		ORDER BY created ` + order +` , p.id ` + order +
-					` LIMIT $3   `, strings.ToLower(slug), since, limit)
+					` LIMIT $3   `, slug, since, limit)
 		}
 
 	}
@@ -271,18 +269,18 @@ func (d Database) GetPostsTree(slugOrId string, limit int, since int64, desc boo
 				`SELECT p.id, p.parent, p.author, p.message, 
 		p.is_edited, p.forum, p.thread, p.created
 		FROM posts p 
-		JOIN threads t ON lower(t.slug) = $1 AND p.thread = t.id
+		JOIN threads t ON t.slug = $1 AND p.thread = t.id
 		ORDER BY p.path ` + order +`, p.created ` + order +`, p.id ASC` +
-					` LIMIT $2   `, strings.ToLower(slug), limit)
+					` LIMIT $2   `, slug, limit)
 		} else {
 			err = pgxscan.Select(context.Background(), d.pool, &posts,
 				`SELECT p.id, p.parent, p.author, p.message, 
 		p.is_edited, p.forum, p.thread, p.created
 		FROM posts p 
-		JOIN threads t ON lower(t.slug) = $1 AND p.thread = t.id
+		JOIN threads t ON t.slug = $1 AND p.thread = t.id
 		WHERE path `+ s + `(SELECT path FROM posts where id = $2)
 		ORDER BY p.path ` + order +`, p.created ` + order +`, p.id ASC` +
-					` LIMIT $3   `, strings.ToLower(slug), since, limit)
+					` LIMIT $3   `, slug, since, limit)
 		}
 	}
 
@@ -418,7 +416,7 @@ func (d Database) GetForumThreads(slug string, limit int, since time.Time, desc 
 		FROM threads t
 		WHERE t.forum = $1 AND t.created `+s+` $2
 		ORDER BY t.created ` + order +
-			` LIMIT $3`, strings.ToLower(slug), since, limit)
+			` LIMIT $3`, slug, since, limit)
 
 	if err != nil {
 		return models.Threads{}, &models.CustomError{
@@ -450,27 +448,27 @@ func (d Database) GetForumUsers(slug string, limit int, since string, desc bool)
 			`SELECT nickname, fullname, about, email from(
 					SELECT nickname, fullname, about, email
 					FROM users
-					JOIN threads t ON lower(t.author) = lower(nickname) AND lower(t.forum) = $1
-					WHERE CAST(lower(nickname) as bytea) ` + s + ` CAST($2 as bytea)
+					JOIN threads t ON t.author = nickname AND t.forum = $1
+					WHERE CAST(lower(nickname) as bytea) ` + s + ` CAST(lower($2) as bytea)
 					UNION
 					SELECT nickname, fullname, about, email
 					FROM users
-					JOIN posts p ON lower(p.author) = lower(nickname) AND lower(p.forum) = $1
-					WHERE CAST(lower(nickname) as bytea) ` + s + ` CAST($2 as bytea)) help
+					JOIN posts p ON p.author = nickname AND p.forum = $1
+					WHERE CAST(lower(nickname) as bytea) ` + s + ` CAST(lower($2) as bytea)) help
 				ORDER BY CAST(lower(nickname) as bytea) `+order+` 
-				LIMIT $3;`, strings.ToLower(slug), strings.ToLower(since), limit)
+				LIMIT $3;`, slug, since, limit)
 	} else {
 		err = pgxscan.Select(context.Background(), d.pool, &users,
 			`SELECT nickname, fullname, about, email from(
 					SELECT nickname, fullname, about, email
 					FROM users
-					JOIN threads t ON lower(t.author) = lower(nickname) AND lower(t.forum) = $1
+					JOIN threads t ON t.author = nickname AND t.forum = $1
 					UNION
 					SELECT nickname, fullname, about, email
 					FROM users
-					JOIN posts p ON lower(p.author) = lower(nickname) AND lower(p.forum) = $1) help
+					JOIN posts p ON p.author = nickname AND p.forum = $1) help
 				ORDER BY CAST(lower(nickname) as bytea) `+order+` 
-				LIMIT $2;`, strings.ToLower(slug), limit)
+				LIMIT $2;`, slug, limit)
 	}
 
 	if err != nil {
@@ -487,7 +485,7 @@ func (d Database) GetThread(slug string) (models.Thread, *models.CustomError) {
 	var t models.Thread
 	err := d.pool.QueryRow(context.Background(),
 		`SELECT id, title, author, forum, message, slug, created
-		FROM threads WHERE lower(slug) = $1`, strings.ToLower(slug)).Scan(
+		FROM threads WHERE slug = $1`, slug).Scan(
 			&t.Id, &t.Title, &t.Author, &t.Forum, &t.Message, &t.Slug, &t.Created)
 	if errors.As(err, &sql.ErrNoRows) {
 		return models.Thread{}, &models.CustomError{
@@ -673,7 +671,6 @@ func (d Database) ClearAll() *models.CustomError {
 
 func (d Database) GetServiceInfo() (models.Status, *models.CustomError) {
 	var answer models.Status
-	log.Print("1")
 	err := d.pool.
 		QueryRow(context.Background(),
 			`SELECT
@@ -682,7 +679,6 @@ func (d Database) GetServiceInfo() (models.Status, *models.CustomError) {
 		(SELECT COUNT (*) from threads) as thread,
 		(SELECT COUNT (*) from posts) as post`).Scan(&answer.User,
 			&answer.Forum, &answer.Thread, &answer.Post)
-	log.Println(err)
 	if err != nil {
 		return models.Status{}, &models.CustomError{
 			Code:    500,
@@ -729,11 +725,11 @@ func (d Database) GetLastPostInThread(slugOrId string) (int64, *models.CustomErr
 	return idLast, nil
 }
 
-func (d Database) AddPosts(posts models.Posts,  slugOrId string) (models.Posts, *models.CustomError) {
+func (d Database) AddPosts(posts models.Posts, threadId int32, form string) (models.Posts, *models.CustomError) {
 	//var id int64
 	for _, elem := range posts {
 		if elem.Parent != 0 {
-			flag, err := d.CheckParentPost(elem.Thread, elem.Parent)
+			flag, err := d.CheckParentPost(threadId, elem.Parent)
 			if err != nil {
 				return models.Posts{}, err
 			}
@@ -744,16 +740,7 @@ func (d Database) AddPosts(posts models.Posts,  slugOrId string) (models.Posts, 
 				}
 			}
 		}
-		_, flag, e := d.CheckUser(elem.Author)
-		if e != nil {
-			return posts, e
-		}
-		if !flag {
-			return posts, &models.CustomError{
-				Code:    404,
-				Message: "user does not exist",
-			}
-		}
+		elem.Thread = threadId
 		
 		err := d.pool.QueryRow(context.Background(),
 			`INSERT INTO posts
@@ -763,6 +750,12 @@ func (d Database) AddPosts(posts models.Posts,  slugOrId string) (models.Posts, 
 			where t.id = $5)) RETURNING id, forum`,
 			elem.Parent, elem.Author, elem.Message, elem.IsEdited,
 			elem.Thread, elem.Created).Scan(&elem.Id, &elem.Forum)
+		if errors.As(err, &sql.ErrNoRows) {
+			return posts, &models.CustomError{
+				Code:    404,
+				Message: "user does not exist",
+			}
+		}
 		if err != nil {
 			return models.Posts{}, &models.CustomError{
 				Code:    500,
@@ -793,7 +786,6 @@ func (d Database) UpdateThread(thread models.ThreadUpdate, slugOrId string) (mod
 			&editedThread.Message,
 			&editedThread.Author, &editedThread.Forum,
 			 &editedThread.Created)
-		log.Println(err)
 		if errors.As(err, &sql.ErrNoRows) {
 			return models.Thread{}, &models.CustomError{
 				Code:    404,
@@ -804,13 +796,12 @@ func (d Database) UpdateThread(thread models.ThreadUpdate, slugOrId string) (mod
 		err = d.pool.
 			QueryRow(context.Background(),
 				`UPDATE threads SET title=COALESCE(NULLIF($1, ''), title), message=COALESCE(NULLIF($2, ''), message) 
-		WHERE lower(slug) = $3 
-		RETURNING *`, thread.Title, thread.Message, strings.ToLower(slug)).Scan(&editedThread.Id,
+		WHERE slug = $3 
+		RETURNING *`, thread.Title, thread.Message, slug).Scan(&editedThread.Id,
 			&editedThread.Title, &editedThread.Slug,
 			&editedThread.Message,
 			&editedThread.Author, &editedThread.Forum,
 			&editedThread.Created)
-		log.Println(err)
 		if errors.As(err, &sql.ErrNoRows) {
 			return models.Thread{}, &models.CustomError{
 				Code:    404,
@@ -872,8 +863,8 @@ func (d Database) AddVote(vote models.Vote, id int32) *models.CustomError {
 func (d Database) UpdateVote(vote models.Vote, id int32) *models.CustomError {
 	_, err := d.pool.Exec(context.Background(),
 		`UPDATE votes 
-		SET voice = $1 WHERE thread_id = $2 AND lower(u) = $3`,
-		vote.Voice, id, strings.ToLower(vote.Nickname))
+		SET voice = $1 WHERE thread_id = $2 AND u = $3`,
+		vote.Voice, id, vote.Nickname)
 	if err != nil {
 		return &models.CustomError{
 			Code:    500,
@@ -927,7 +918,7 @@ func (d Database) ReturnUsers(nickname string, email string) (models.Users, *mod
 	var users models.Users
 	err := pgxscan.Select(context.Background(), d.pool, &users,
 		`SELECT DISTINCT nickname, fullname, about, email 
-		FROM users WHERE lower(nickname) = $1 or lower(email) = $2`, strings.ToLower(nickname), strings.ToLower(email))
+		FROM users WHERE nickname = $1 or email = $2`, nickname, email)
 	if len(users) == 0 {
 		return nil, nil
 	}
@@ -947,8 +938,8 @@ func (d Database) GetUser(nickname string) (models.User, *models.CustomError) {
 	var user models.User
 	err := d.pool.QueryRow(context.Background(),
 		`SELECT nickname, fullname, about, email 
-		FROM users WHERE lower(nickname) = $1`,
-		strings.ToLower(nickname)).Scan(
+		FROM users WHERE nickname = $1`,
+		nickname).Scan(
 			&user.Nickname, &user.Fullname, &user.About, &user.Email)
 	if errors.As(err, &sql.ErrNoRows){
 		return user, &models.CustomError{
@@ -971,9 +962,8 @@ func (d Database) UpdateUser(nickname string, update models.UserUpdate) *models.
 	_, err := d.pool.Exec(context.Background(),
 		`UPDATE users 
 		set fullname = COALESCE(NULLIF($1, ''), fullname), about = COALESCE(NULLIF($2, ''), about), email = COALESCE(NULLIF($3, ''), email)
-		WHERE lower(nickname) = $4`,
-		update.Fullname, update.About, update.Email, strings.ToLower(nickname))
-	log.Println(err)
+		WHERE nickname = $4`,
+		update.Fullname, update.About, update.Email, nickname)
 	if errors.As(err, &sql.ErrNoRows){
 		return &models.CustomError{
 			Code:    404,
@@ -994,8 +984,8 @@ func (d Database) CheckVote(nickname string, threadId int32) (string, bool, *mod
 	var name string
 	err := d.pool.
 		QueryRow(context.Background(),
-			`SELECT u FROM votes WHERE lower(u) = $1 AND thread_id = $2`,
-			strings.ToLower(nickname), threadId).Scan(&name)
+			`SELECT u FROM votes WHERE u = $1 AND thread_id = $2`,
+			nickname, threadId).Scan(&name)
 	if errors.As(err, &pgx.ErrNoRows) {
 		return "", false, nil
 	}

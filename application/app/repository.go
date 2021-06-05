@@ -23,7 +23,7 @@ type Repository interface {
 	UpdatePost(postId int64, newPost models.PostUpdate) (models.Post, *models.CustomError)
 	ClearAll() *models.CustomError
 	GetServiceInfo() (models.Status, *models.CustomError)
-	AddPosts(posts models.Posts, slugOrId string) (models.Posts, *models.CustomError)
+	AddPosts(posts models.Posts, threadId int32, form string) (models.Posts, *models.CustomError)
 	GetLastPostInThread(slugOrId string) (int64, *models.CustomError)
 	GetThreadBySlugOrId(slugOrId string) (models.Thread, *models.CustomError)
 	UpdateThread(thread models.ThreadUpdate, slugOrId string) (models.Thread, *models.CustomError)
