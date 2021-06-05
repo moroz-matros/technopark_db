@@ -2,6 +2,7 @@
 -- create database forum owner postgre;
 -- grant all privileges on database forum to postgre;
 
+
 create table if not exists users
 (
     id bigserial primary key,
@@ -51,8 +52,7 @@ create table if not exists posts (
     foreign key (forum) references forums(slug)
 );
 
-create index idx_parent_thread on posts
-using hash(id, thread);
+create index idx_parent_thread on posts(id, thread);
 
 CREATE OR REPLACE FUNCTION update_posts()
     RETURNS trigger AS
