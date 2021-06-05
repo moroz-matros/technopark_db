@@ -324,48 +324,46 @@ func (d Database) CreateForum(forum *models.Forum) *models.CustomError {
 	return nil
 }
 
-func (d Database) CheckUser(nickname string) (string, int32, bool, *models.CustomError) {
-	var id int32
+func (d Database) CheckUser(nickname string) (string, bool, *models.CustomError) {
 	err := d.pool.
 		QueryRow(context.Background(),
-			`SELECT id, nickname FROM users WHERE lower(nickname) = $1`, strings.ToLower(nickname)).Scan(&id, &nickname)
+			`SELECT nickname FROM users WHERE nickname = $1`, nickname).Scan(&nickname)
 
 	if errors.As(err, &pgx.ErrNoRows) {
-		return "", 0, false, nil
+		return "", false, nil
 	}
 	if err != nil {
-		return "", 0, false, &models.CustomError{
+		return "", false, &models.CustomError{
 			Code:    500,
 			Message: err.Error(),
 		}
 	}
-	return nickname, id, true, nil
+	return nickname, true, nil
 }
 
-func (d Database) CheckForumBySlug(slug string) (int32, string, bool, *models.CustomError) {
-	var id int32
+func (d Database) CheckForumBySlug(slug string) (string, bool, *models.CustomError) {
 	var name string
 	err := d.pool.
 		QueryRow(context.Background(),
-			`SELECT id, slug FROM forums WHERE lower(slug) = $1`, strings.ToLower(slug)).Scan(&id, &name)
+			`SELECT slug FROM forums WHERE slug = $1`, slug).Scan(&name)
 
 	if errors.As(err, &pgx.ErrNoRows) {
-		return 0, "", false, nil
+		return "", false, nil
 	}
 	if err != nil {
-		return 0, "", false, &models.CustomError{
+		return "", false, &models.CustomError{
 			Code:    500,
 			Message: err.Error(),
 		}
 	}
-	return id, name, true, nil
+	return name, true, nil
 }
 
 func (d Database) GetForum(slug string) (models.Forum, *models.CustomError) {
 	var f models.Forum
 	err := d.pool.QueryRow(context.Background(),
 		`SELECT id, title, u, slug
-		FROM forums WHERE lower(slug) = $1`, strings.ToLower(slug)).Scan(
+		FROM forums WHERE slug = $1`, slug).Scan(
 			&f.Id, &f.Title, &f.User, &f.Slug)
 	if errors.As(err, &sql.ErrNoRows) {
 		return models.Forum{}, &models.CustomError{
@@ -418,10 +416,9 @@ func (d Database) GetForumThreads(slug string, limit int, since time.Time, desc 
 	err := pgxscan.Select(context.Background(), d.pool, &threads,
 		`SELECT t.id, t.title, t.author, t.forum, t.message, t.slug, t.created
 		FROM threads t
-		WHERE lower(t.forum) = $1 AND t.created `+s+` $2
+		WHERE t.forum = $1 AND t.created `+s+` $2
 		ORDER BY t.created ` + order +
 			` LIMIT $3`, strings.ToLower(slug), since, limit)
-
 
 	if err != nil {
 		return models.Threads{}, &models.CustomError{
@@ -747,7 +744,7 @@ func (d Database) AddPosts(posts models.Posts,  slugOrId string) (models.Posts, 
 				}
 			}
 		}
-		_, _, flag, e := d.CheckUser(elem.Author)
+		_, flag, e := d.CheckUser(elem.Author)
 		if e != nil {
 			return posts, e
 		}

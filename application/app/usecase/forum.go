@@ -16,7 +16,7 @@ func NewForum(repoDatabase forum.Repository) forum.Usecase {
 }
 
 func (f ForumUC) CreateForum(forum *models.Forum) (models.Forum, *models.CustomError) {
-	nickname, _, flag, err := f.repo.CheckUser(forum.User)
+	nickname, flag, err := f.repo.CheckUser(forum.User)
 	if err != nil {
 		return models.Forum{}, err
 	}
@@ -27,7 +27,7 @@ func (f ForumUC) CreateForum(forum *models.Forum) (models.Forum, *models.CustomE
 		}
 	}
 
-	_, _, flag, err = f.repo.CheckForumBySlug(forum.Slug)
+	_, flag, err = f.repo.CheckForumBySlug(forum.Slug)
 	if err != nil {
 		return models.Forum{}, err
 	}
@@ -60,7 +60,7 @@ func (f ForumUC) GetForum(slug string) (models.Forum, *models.CustomError) {
 	if err != nil {
 		return frm, err
 	}
-	frm.Posts = int64(count)
+	frm.Posts = count
 	cnt, err := f.repo.CountThreads(frm.Slug)
 	if err != nil {
 		return frm, err
@@ -112,7 +112,7 @@ func (f ForumUC) GetPostDetails(id int64, params string) (models.PostFull, *mode
 }
 
 func (f ForumUC) GetForumThreads(slug string, limit int, since time.Time, desc bool) (models.Threads, *models.CustomError) {
-	_, _, flag, err := f.repo.CheckForumBySlug(slug)
+	_, flag, err := f.repo.CheckForumBySlug(slug)
 	if err != nil {
 		return models.Threads{}, err
 	}
@@ -123,11 +123,13 @@ func (f ForumUC) GetForumThreads(slug string, limit int, since time.Time, desc b
 		}
 	}
 
+
+
 	return f.repo.GetForumThreads(slug, limit, since, desc)
 }
 
 func (f ForumUC) GetForumUsers(slug string, limit int, since string, desc bool) (models.Users, *models.CustomError) {
-	_, _, flag, err := f.repo.CheckForumBySlug(slug)
+	_, flag, err := f.repo.CheckForumBySlug(slug)
 	if err != nil {
 		return models.Users{}, err
 	}
@@ -142,7 +144,7 @@ func (f ForumUC) GetForumUsers(slug string, limit int, since string, desc bool) 
 }
 
 func (f ForumUC) CreateThread(thread models.Thread) (models.Thread, *models.CustomError) {
-	nickname, _, flag, err := f.repo.CheckUser(thread.Author)
+	nickname, flag, err := f.repo.CheckUser(thread.Author)
 	if err != nil {
 		return thread, err
 	}
@@ -153,7 +155,7 @@ func (f ForumUC) CreateThread(thread models.Thread) (models.Thread, *models.Cust
 		}
 	}
 	var forumSlug string
-	_, forumSlug, flag, err = f.repo.CheckForumBySlug(thread.Forum)
+	forumSlug, flag, err = f.repo.CheckForumBySlug(thread.Forum)
 	if err != nil {
 		return thread, err
 	}
@@ -252,7 +254,7 @@ func (f ForumUC) AddVote(vote models.Vote, slugOrId string) (models.Thread, *mod
 			return models.Thread{}, err
 		}
 	} else {
-		_, _, flag, err = f.repo.CheckUser(vote.Nickname)
+		_, flag, err = f.repo.CheckUser(vote.Nickname)
 		if err != nil {
 			return models.Thread{}, err
 		}

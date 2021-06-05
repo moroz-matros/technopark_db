@@ -7,8 +7,8 @@ import (
 
 type Repository interface {
 	CreateForum(forum *models.Forum) *models.CustomError
-	CheckForumBySlug(slug string) (int32, string, bool, *models.CustomError)
-	CheckUser(nickname string) (string, int32, bool, *models.CustomError)
+	CheckForumBySlug(slug string) (string, bool, *models.CustomError)
+	CheckUser(nickname string) (string, bool, *models.CustomError)
 	GetForum(slug string) (models.Forum, *models.CustomError)
 	CountPosts(frm string) (int64, *models.CustomError)
 	CountThreads(frm string) (int32, *models.CustomError)
