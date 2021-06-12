@@ -747,9 +747,9 @@ func (d Database) AddPosts(posts models.Posts, threadId int32, form string) (mod
 			(parent, author, message, is_edited, thread, created, forum) 
 			VALUES ($1, $2, $3, $4, $5, $6, 
 			(select t.forum from threads t
-			where t.id = $5)) RETURNING id, forum`,
+			where t.id = $5)) RETURNING id, forum, created`,
 			elem.Parent, elem.Author, elem.Message, elem.IsEdited,
-			elem.Thread, elem.Created).Scan(&elem.Id, &elem.Forum)
+			elem.Thread, elem.Created).Scan(&elem.Id, &elem.Forum, &elem.Created)
 		if errors.As(err, &sql.ErrNoRows) {
 			return posts, &models.CustomError{
 				Code:    404,

@@ -140,11 +140,11 @@ func (h ForumHandler) GetForumThreads(c echo.Context) error {
 		desc = false
 	}
 
-
 	threads, err := h.uc.GetForumThreads(slug, limit, since, desc)
 	if err != nil {
 		return echo.NewHTTPError(err.Code, err.Message)
 	}
+
 
 	return c.JSON(200, threads)
 }
@@ -288,6 +288,7 @@ func (h ForumHandler) GetPosts(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(err.Code, err.Message)
 	}
+
 	return c.JSON(200, posts)
 }
 

@@ -124,8 +124,14 @@ func (f ForumUC) GetForumThreads(slug string, limit int, since time.Time, desc b
 	}
 
 
-
-	return f.repo.GetForumThreads(slug, limit, since, desc)
+	threads, err := f.repo.GetForumThreads(slug, limit, since, desc)
+	if err != nil {
+		return models.Threads{}, err
+	}
+	for _, elem := range threads {
+		elem.Votes , _ = f.repo.GetVotes(elem.Id)
+	}
+	return threads, nil
 }
 
 func (f ForumUC) GetForumUsers(slug string, limit int, since string, desc bool) (models.Users, *models.CustomError) {

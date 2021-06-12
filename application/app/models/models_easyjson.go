@@ -332,7 +332,7 @@ func easyjsonD2b7633eDecodeGithubComMorozMatrosTechnoparkDbApplicationAppModels4
 		in.Delim('[')
 		if *out == nil {
 			if !in.IsDelim(']') {
-				*out = make(Threads, 0, 0)
+				*out = make(Threads, 0, 8)
 			} else {
 				*out = Threads{}
 			}
@@ -340,8 +340,16 @@ func easyjsonD2b7633eDecodeGithubComMorozMatrosTechnoparkDbApplicationAppModels4
 			*out = (*out)[:0]
 		}
 		for !in.IsDelim(']') {
-			var v4 Thread
-			(v4).UnmarshalEasyJSON(in)
+			var v4 *Thread
+			if in.IsNull() {
+				in.Skip()
+				v4 = nil
+			} else {
+				if v4 == nil {
+					v4 = new(Thread)
+				}
+				(*v4).UnmarshalEasyJSON(in)
+			}
 			*out = append(*out, v4)
 			in.WantComma()
 		}
@@ -360,7 +368,11 @@ func easyjsonD2b7633eEncodeGithubComMorozMatrosTechnoparkDbApplicationAppModels4
 			if v5 > 0 {
 				out.RawByte(',')
 			}
-			(v6).MarshalEasyJSON(out)
+			if v6 == nil {
+				out.RawString("null")
+			} else {
+				(*v6).MarshalEasyJSON(out)
+			}
 		}
 		out.RawByte(']')
 	}
