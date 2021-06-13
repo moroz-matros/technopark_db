@@ -227,11 +227,6 @@ func (f ForumUC) GetThreadBySlugOrId(slugOrId string) (models.Thread, *models.Cu
 	if err != nil {
 		return models.Thread{}, err
 	}
-	votes, err := f.repo.GetVotes(t.Id)
-	if err != nil {
-		return models.Thread{}, err
-	}
-	t.Votes = votes
 	return t, nil
 }
 
@@ -245,7 +240,7 @@ func (f ForumUC) AddVote(vote models.Vote, slugOrId string) (models.Thread, *mod
 		return models.Thread{}, err
 	}
 
-	name, flag, err := f.repo.CheckVote(vote.Nickname, thread.Id)
+	name, voice, flag, err := f.repo.CheckVote(vote.Nickname, thread.Id)
 	if err != nil {
 		return models.Thread{}, err
 	}
@@ -272,12 +267,7 @@ func (f ForumUC) AddVote(vote models.Vote, slugOrId string) (models.Thread, *mod
 		}
 	}
 
-
-	voices, err := f.repo.GetVotes(thread.Id)
-	if err != nil {
-		return models.Thread{}, err
-	}
-	thread.Votes = voices
+	thread.Votes = thread.Votes - voice + vote.Voice
 
 	return thread, nil
 }
@@ -308,7 +298,6 @@ func (f ForumUC) AddUser(user models.User, nickname string) (*models.User, *mode
 func (f ForumUC) GetUser(nickname string) (models.User, *models.CustomError) {
 	return f.repo.GetUser(nickname)
 }
-
 func (f ForumUC) UpdateUser(nickname string, update models.UserUpdate) (models.User, *models.CustomError) {
 	user, err := f.repo.GetUser(nickname)
 	flag := true

@@ -34,7 +34,7 @@ type Repository interface {
 	ReturnUsers(nickname string, email string) (models.Users, *models.CustomError)
 	GetUser(nickname string) (models.User, *models.CustomError)
 	UpdateUser(nickname string, update models.UserUpdate) *models.CustomError
-	CheckVote(nickname string, threadId int32) (string, bool, *models.CustomError)
+	CheckVote(nickname string, threadId int32) (string, int32, bool, *models.CustomError)
 	GetPostsFlat(slugOrId string, limit int, since int64, desc bool) (models.Posts, *models.CustomError)
 	GetPostsTree(slugOrId string, limit int, since int64, desc bool) (models.Posts, *models.CustomError)
 	GetPostsParent(slugOrId string, limit int, since int64, desc bool) (models.Posts, *models.CustomError)

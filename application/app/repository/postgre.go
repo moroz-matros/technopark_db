@@ -412,7 +412,7 @@ func (d Database) GetForumThreads(slug string, limit int, since time.Time, desc 
 		s = " >= "
 	}
 	err := pgxscan.Select(context.Background(), d.pool, &threads,
-		`SELECT t.id, t.title, t.author, t.forum, t.message, t.slug, t.created
+		`SELECT t.id, t.title, t.author, t.forum, t.message, t.slug, t.created, t.votes
 		FROM threads t
 		WHERE t.forum = $1 AND t.created `+s+` $2
 		ORDER BY t.created ` + order +
@@ -484,9 +484,9 @@ func (d Database) GetForumUsers(slug string, limit int, since string, desc bool)
 func (d Database) GetThread(slug string) (models.Thread, *models.CustomError) {
 	var t models.Thread
 	err := d.pool.QueryRow(context.Background(),
-		`SELECT id, title, author, forum, message, slug, created
+		`SELECT id, title, author, forum, message, slug, created, votes
 		FROM threads WHERE slug = $1`, slug).Scan(
-			&t.Id, &t.Title, &t.Author, &t.Forum, &t.Message, &t.Slug, &t.Created)
+			&t.Id, &t.Title, &t.Author, &t.Forum, &t.Message, &t.Slug, &t.Created, &t.Votes)
 	if errors.As(err, &sql.ErrNoRows) {
 		return models.Thread{}, &models.CustomError{
 			Code:    404,
@@ -505,10 +505,10 @@ func (d Database) GetThread(slug string) (models.Thread, *models.CustomError) {
 func (d Database) CreateThread(thread models.Thread, data time.Time) (models.Thread, *models.CustomError) {
 	err := d.pool.QueryRow(context.Background(),
 		`INSERT INTO threads 
-		(title, slug, message, author, forum, created) 
-		VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+		(title, slug, message, author, forum, created, votes) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
 		thread.Title, thread.Slug, thread.Message,
-		thread.Author, thread.Forum, data).Scan(&thread.Id)
+		thread.Author, thread.Forum, data, 0).Scan(&thread.Id)
 	if errors.As(err, &sql.ErrNoRows) {
 		return thread, &models.CustomError{
 			Code:    409,
@@ -620,10 +620,10 @@ func (d Database) GetPostById(id int64) (models.Post, *models.CustomError) {
 func (d Database) GetThreadByPost(postId int64) (models.Thread, *models.CustomError) {
 	var t models.Thread
 	err := d.pool.QueryRow(context.Background(),
-		`SELECT t.id, t.title, t.author, t.forum, t.message, t.slug, t.created
+		`SELECT t.id, t.title, t.author, t.forum, t.message, t.slug, t.created, t.votes
 		FROM threads t, posts p
 		WHERE p.id = $1 AND t.id = p.thread`, postId).Scan(
-		&t.Id, &t.Title, &t.Author, &t.Forum, &t.Message, &t.Slug, &t.Created)
+		&t.Id, &t.Title, &t.Author, &t.Forum, &t.Message, &t.Slug, &t.Created, &t.Votes)
 	if errors.As(err, &sql.ErrNoRows) {
 		return models.Thread{}, &models.CustomError{
 			Code:    404,
@@ -785,7 +785,7 @@ func (d Database) UpdateThread(thread models.ThreadUpdate, slugOrId string) (mod
 			&editedThread.Title, &editedThread.Slug,
 			&editedThread.Message,
 			&editedThread.Author, &editedThread.Forum,
-			 &editedThread.Created)
+			 &editedThread.Created, &editedThread.Votes)
 		if errors.As(err, &sql.ErrNoRows) {
 			return models.Thread{}, &models.CustomError{
 				Code:    404,
@@ -801,7 +801,7 @@ func (d Database) UpdateThread(thread models.ThreadUpdate, slugOrId string) (mod
 			&editedThread.Title, &editedThread.Slug,
 			&editedThread.Message,
 			&editedThread.Author, &editedThread.Forum,
-			&editedThread.Created)
+			&editedThread.Created, &editedThread.Votes)
 		if errors.As(err, &sql.ErrNoRows) {
 			return models.Thread{}, &models.CustomError{
 				Code:    404,
@@ -824,9 +824,9 @@ func (d Database) GetThreadBySlugOrId(slugOrId string) (models.Thread, *models.C
 	if flagIsId {
 		var t models.Thread
 		err = d.pool.QueryRow(context.Background(),
-			`SELECT id, title, author, forum, message, slug, created
+			`SELECT id, title, author, forum, message, slug, created, votes
 		FROM threads WHERE id = $1`, id).Scan(&t.Id,
-			&t.Title, &t.Author, &t.Forum, &t.Message, &t.Slug, &t.Created)
+			&t.Title, &t.Author, &t.Forum, &t.Message, &t.Slug, &t.Created, &t.Votes)
 		if errors.As(err, &sql.ErrNoRows) {
 			return models.Thread{}, &models.CustomError{
 				Code:    404,
@@ -980,20 +980,21 @@ func (d Database) UpdateUser(nickname string, update models.UserUpdate) *models.
 	return nil
 }
 
-func (d Database) CheckVote(nickname string, threadId int32) (string, bool, *models.CustomError) {
+func (d Database) CheckVote(nickname string, threadId int32) (string, int32, bool, *models.CustomError) {
 	var name string
+	var voice int32
 	err := d.pool.
 		QueryRow(context.Background(),
-			`SELECT u FROM votes WHERE u = $1 AND thread_id = $2`,
-			nickname, threadId).Scan(&name)
+			`SELECT u, voice FROM votes WHERE u = $1 AND thread_id = $2`,
+			nickname, threadId).Scan(&name, &voice)
 	if errors.As(err, &pgx.ErrNoRows) {
-		return "", false, nil
+		return "", 0, false, nil
 	}
 	if err != nil {
-		return "", false, &models.CustomError{
+		return "", 0, false, &models.CustomError{
 			Code:    500,
 			Message: err.Error(),
 		}
 	}
-	return nickname, true, nil
+	return nickname, voice, true, nil
 }
