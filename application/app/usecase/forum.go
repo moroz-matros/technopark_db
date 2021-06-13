@@ -251,16 +251,6 @@ func (f ForumUC) AddVote(vote models.Vote, slugOrId string) (models.Thread, *mod
 			return models.Thread{}, err
 		}
 	} else {
-		_, flag, err = f.repo.CheckUser(vote.Nickname)
-		if err != nil {
-			return models.Thread{}, err
-		}
-		if !flag {
-			return models.Thread{}, &models.CustomError{
-				Code:    404,
-				Message: "user does not exist",
-			}
-		}
 		err = f.repo.AddVote(vote, thread.Id)
 		if err != nil {
 			return models.Thread{}, err

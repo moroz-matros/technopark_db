@@ -844,16 +844,10 @@ func (d Database) AddVote(vote models.Vote, id int32) *models.CustomError {
 			`INSERT INTO votes
 			(thread_id, u, voice)
 			VALUES ($1, $2, $3)`, id, vote.Nickname, vote.Voice)
-	if errors.As(err, &sql.ErrNoRows) {
-		return &models.CustomError{
-			Code:    http.StatusConflict,
-			Message: "already exists",
-		}
-	}
 	if err != nil {
-		return  &models.CustomError{
-			Code:    500,
-			Message: err.Error(),
+		return &models.CustomError{
+			Code:    404,
+			Message: "user does not exist",
 		}
 	}
 
