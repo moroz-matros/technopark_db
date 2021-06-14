@@ -8,6 +8,7 @@
 technopark-dbms-forum
 *.html
 tech-db-forum.dat.gz
+main
 # Test binary, built with `go test -c`
 *.test
 

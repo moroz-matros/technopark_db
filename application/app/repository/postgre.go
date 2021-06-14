@@ -19,12 +19,12 @@ type Database struct {
 }
 
 func (d Database) CheckParentPost(threadId int32, postId int64) (bool, *models.CustomError) {
-	var id int64
+	var thread int32
 	err := d.pool.QueryRow(context.Background(),
-		`SELECT id
+		`SELECT thread
 		FROM posts 
-		WHERE id = $1 AND thread = $2`, postId, threadId).Scan(&id)
-	if errors.As(err, &sql.ErrNoRows) {
+		WHERE id = $1`, postId).Scan(&thread)
+	if thread != threadId {
 		return false, nil
 	}
 	if err != nil {
@@ -264,7 +264,7 @@ func (d Database) GetPostsTree(slugOrId string, limit int, since int64, desc boo
 		}
 
 	} else {
-		if since == 0{
+		if since == 0 {
 			err = pgxscan.Select(context.Background(), d.pool, &posts,
 				`SELECT p.id, p.parent, p.author, p.message, 
 		p.is_edited, p.forum, p.thread, p.created

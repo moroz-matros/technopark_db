@@ -53,7 +53,8 @@ create unlogged table if not exists posts (
     foreign key (forum) references forums(slug)
 );
 
-create index idx_parent_thread on posts(id, thread);
+--create index idx_post_thread on posts using hash(thread);
+
 
 CREATE OR REPLACE FUNCTION update_posts()
     RETURNS trigger AS
