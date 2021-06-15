@@ -60,40 +60,34 @@ func (d Database) GetPostsParent(slugOrId string, limit int, since int64, desc b
 		if since == 0 {
 			err = pgxscan.Select(context.Background(), d.pool, &posts,
 				`SELECT p.id, p.parent, p.author, p.message, 
-		p.is_edited, p.forum, p.thread, p.created, p.path
-		FROM posts p WHERE p.thread = $1 AND
-		 p.parent = '0' 
-		ORDER BY p.path ` + order +`, p.created ` + order +`, p.id ` + order +
-					` LIMIT $2   `, id, limit)
+		p.is_edited, p.forum, p.thread, p.created
+		FROM posts p WHERE p.path[2] in (select id from posts where thread = $1 and path[3] IS NULL order by id `+ order+` LIMIT $2)
+		ORDER BY p.path[2] ` + order +`,p.path ASC, p.id ASC`, id, limit)
 		} else {
 			err = pgxscan.Select(context.Background(), d.pool, &posts,
 				`SELECT p.id, p.parent, p.author, p.message, 
-		p.is_edited, p.forum, p.thread, p.created, p.path
-		FROM posts p WHERE p.thread = $1 AND
-		p.parent = '0' and p.path `+ s + `(SELECT path FROM posts where id = $2) AND (SELECT POSITION(path IN (SELECT path FROM posts where id = $2))) = '0'
-		ORDER BY p.path ` + order +`, p.created ` + order +`, p.id ` + order +
-					` LIMIT $3   `, id, since, limit)
+		p.is_edited, p.forum, p.thread, p.created
+		FROM posts p WHERE p.path[2] in (select id from posts where thread = $1 and path[3] IS NULL
+		and path[2] `+ s + `(SELECT path[2] FROM posts where id = $2) order by id `+ order+` LIMIT $3)
+		ORDER BY p.path[2] ` + order +`,p.path ASC, p.id ASC`, id, since, limit)
 		}
 
 	} else {
 		if since == 0 {
 			err = pgxscan.Select(context.Background(), d.pool, &posts,
 				`SELECT p.id, p.parent, p.author, p.message, 
-		p.is_edited, p.forum, p.thread, p.created, p.path
+		p.is_edited, p.forum, p.thread, p.created
 		FROM posts p 
-		JOIN threads t ON t.slug = $1 AND p.thread = t.id
-		WHERE p.parent = '0'
-		ORDER BY p.path ` + order +`, p.created ` + order +`, p.id ASC`  +
-					` LIMIT $2   `, slug, limit)
+		 WHERE p.path[2] in (select id from posts where thread = (select id from threads where slug = $1) and path[3] IS NULL order by id `+ order+` LIMIT $2)
+		ORDER BY p.path[2] ` + order +`,p.path ASC, p.id ASC`, slug, limit)
 		} else {
 			err = pgxscan.Select(context.Background(), d.pool, &posts,
 				`SELECT p.id, p.parent, p.author, p.message, 
-		p.is_edited, p.forum, p.thread, p.created, p.path
-		FROM posts p 
-		JOIN threads t ON t.slug = $1 AND p.thread = t.id
-		WHERE p.parent = '0' and p.path `+ s + `(SELECT path FROM posts where id = $2) AND (SELECT POSITION(path IN (SELECT path FROM posts where id = $2))) = '0'
-		ORDER BY p.path ` + order +`, p.created ` + order +`, p.id ASC`  +
-					` LIMIT $3   `, slug, since, limit)
+		p.is_edited, p.forum, p.thread, p.created
+		FROM posts p
+		WHERE p.path[2] in (select id from posts where thread = (select id from threads where slug = $1) and path[3] IS NULL
+	and path[2] `+ s + `(SELECT path[2] FROM posts where id = $2) order by id `+ order+` LIMIT $3)
+		ORDER BY p.path[2] ` + order +`, p.path ASC, p.id ASC`, slug, since, limit)
 		}
 
 	}
@@ -175,7 +169,7 @@ func (d Database) GetPostsFlat(slugOrId string, limit int, since int64, desc boo
 				`SELECT p.id, p.parent, p.author, p.message, 
 		p.is_edited, p.forum, p.thread, p.created
 		FROM posts p WHERE p.thread = $1 
-		ORDER BY created ` + order +`, p.id ` + order +
+		ORDER BY p.id ` + order +
 					` LIMIT $2   `, id, limit)
 		} else {
 			err = pgxscan.Select(context.Background(), d.pool, &posts,
@@ -183,7 +177,7 @@ func (d Database) GetPostsFlat(slugOrId string, limit int, since int64, desc boo
 		p.is_edited, p.forum, p.thread, p.created
 		FROM posts p WHERE p.thread = $1 AND
 		p.id `+s+` $2
-		ORDER BY created ` + order +`, p.id ` + order +
+		ORDER BY p.id ` + order +
 					` LIMIT $3   `, id, since, limit)
 		}
 
@@ -193,8 +187,8 @@ func (d Database) GetPostsFlat(slugOrId string, limit int, since int64, desc boo
 				`SELECT p.id, p.parent, p.author, p.message, 
 		p.is_edited, p.forum, p.thread, p.created
 		FROM posts p 
-		JOIN threads t ON t.slug = $1 AND p.thread = t.id
-		ORDER BY created ` + order +` , p.id ` + order +
+		WHERE thread = (select id from threads where slug = $1)
+		ORDER BY p.id ` + order +
 					` LIMIT $2   `, slug, limit)
 		} else {
 			err = pgxscan.Select(context.Background(), d.pool, &posts,
@@ -202,8 +196,8 @@ func (d Database) GetPostsFlat(slugOrId string, limit int, since int64, desc boo
 		p.is_edited, p.forum, p.thread, p.created
 		FROM posts p 
 		JOIN threads t ON t.slug = $1 AND p.thread = t.id
-		WHERE p.id `+s+` $2
-		ORDER BY created ` + order +` , p.id ` + order +
+		WHERE thread = (select id from threads where slug = $1) AND p.id `+s+` $2
+		ORDER BY p.id ` + order +
 					` LIMIT $3   `, slug, since, limit)
 		}
 
@@ -360,9 +354,9 @@ func (d Database) CheckForumBySlug(slug string) (string, bool, *models.CustomErr
 func (d Database) GetForum(slug string) (models.Forum, *models.CustomError) {
 	var f models.Forum
 	err := d.pool.QueryRow(context.Background(),
-		`SELECT id, title, u, slug
+		`SELECT id, title, u, slug, posts, threads
 		FROM forums WHERE slug = $1`, slug).Scan(
-			&f.Id, &f.Title, &f.User, &f.Slug)
+			&f.Id, &f.Title, &f.User, &f.Slug, &f.Posts, &f.Threads)
 	if errors.As(err, &sql.ErrNoRows) {
 		return models.Forum{}, &models.CustomError{
 			Code:    404,
@@ -572,10 +566,10 @@ func (d Database) UpdatePost(postId int64, newPost models.PostUpdate) (models.Po
 		QueryRow(context.Background(),
 		`UPDATE posts SET message = COALESCE(NULLIF($1, ''), message), is_edited = $2
 		WHERE id = $3
-		RETURNING *`, newPost.Message, isEdited, postId).Scan(&editedPost.Id,
+		RETURNING id, parent, author, message, is_edited, forum, thread, created`, newPost.Message, isEdited, postId).Scan(&editedPost.Id,
 		&editedPost.Parent, &editedPost.Author,
 		&editedPost.Message, &editedPost.IsEdited, &editedPost.Forum,
-		&editedPost.Thread, &editedPost.Created, &editedPost.Path)
+		&editedPost.Thread, &editedPost.Created)
 	if errors.As(e, &sql.ErrNoRows) {
 		return models.Post{}, &models.CustomError{
 			Code:    404,
@@ -642,10 +636,10 @@ func (d Database) GetThreadByPost(postId int64) (models.Thread, *models.CustomEr
 func (d Database) GetForumByPost(postId int64) (models.Forum, *models.CustomError) {
 	var f models.Forum
 	err := d.pool.QueryRow(context.Background(),
-		`SELECT f.id, f.title, f.u, f.slug
+		`SELECT f.id, f.title, f.u, f.slug, f.posts, f.threads
 		FROM forums f, posts p
 		WHERE p.id = $1 AND p.forum = f.slug`, postId).Scan(
-			&f.Id, &f.Title, &f.User, &f.Slug)
+			&f.Id, &f.Title, &f.User, &f.Slug, &f.Posts, &f.Threads)
 
 	if err != nil {
 		return models.Forum{}, &models.CustomError{
@@ -728,18 +722,6 @@ func (d Database) GetLastPostInThread(slugOrId string) (int64, *models.CustomErr
 func (d Database) AddPosts(posts models.Posts, threadId int32, form string) (models.Posts, *models.CustomError) {
 	//var id int64
 	for _, elem := range posts {
-		if elem.Parent != 0 {
-			flag, err := d.CheckParentPost(threadId, elem.Parent)
-			if err != nil {
-				return models.Posts{}, err
-			}
-			if !flag {
-				return models.Posts{}, &models.CustomError{
-					Code:    409,
-					Message: "parent in another place",
-				}
-			}
-		}
 		elem.Thread = threadId
 		
 		err := d.pool.QueryRow(context.Background(),
@@ -750,6 +732,14 @@ func (d Database) AddPosts(posts models.Posts, threadId int32, form string) (mod
 			where t.id = $5)) RETURNING id, forum, created`,
 			elem.Parent, elem.Author, elem.Message, elem.IsEdited,
 			elem.Thread, elem.Created).Scan(&elem.Id, &elem.Forum, &elem.Created)
+		if err != nil {
+			if err.Error() == "ERROR: 00409 (SQLSTATE 00409)"{
+				return posts, &models.CustomError{
+					Code:    409,
+					Message: "Parent post was created in another thread",
+				}
+			}
+		}
 		if errors.As(err, &sql.ErrNoRows) {
 			return posts, &models.CustomError{
 				Code:    404,

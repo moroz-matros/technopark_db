@@ -19,8 +19,11 @@ create unlogged table if not exists forums (
     title text not null,
     u citext not null,
     slug citext unique not null,
+    posts bigint default 0,
+    threads bigint default 0,
     foreign key (u) References users(nickname)
 );
+
 
 create index idx_forum_slug on forums using hash(slug);
 
@@ -37,7 +40,7 @@ create unlogged table if not exists threads (
     foreign key (forum) references forums(slug)
 );
 
-create index idx_thread_slug on forums using hash(slug);
+create index idx_thread_slug on threads using hash(slug);
 
 create unlogged table if not exists posts (
     id bigserial primary key,
@@ -46,22 +49,34 @@ create unlogged table if not exists posts (
     message text not null,
     is_edited boolean not null,
     forum citext not null,
-    thread bigint references threads (id) on delete cascade,
+    thread bigint references threads (id),
     created timestamp with time zone,
-    path text,
+    path bigint[],
     foreign key (author) references users(nickname),
     foreign key (forum) references forums(slug)
 );
 
---create index idx_post_thread on posts using hash(thread);
-
+create index idx_posts_thread on posts using hash(thread);
 
 CREATE OR REPLACE FUNCTION update_posts()
     RETURNS trigger AS
   $$
+declare
+parent_path   bigint[];
+parent_thread   bigint;
     BEGIN
-    NEW.path = CONCAT(
-        coalesce((select path from posts where id = NEW.parent), '0'), '.', New.id);
+    if (new.parent = 0) then
+        new.path = array[0,new.id];
+    else
+        select p.path, p.thread
+        from posts p
+        where p.id = new.parent
+        into parent_path, parent_thread;
+        if parent_thread != new.thread or parent_thread is null then
+            RAISE EXCEPTION USING ERRCODE = '00409';
+        end if;
+        new.path := parent_path || new.id;
+    end if;
     RETURN NEW;
     END;
   $$
@@ -101,6 +116,26 @@ END;
   $$
 LANGUAGE 'plpgsql';
 
+CREATE OR REPLACE FUNCTION add_post()
+    RETURNS trigger AS
+  $$
+BEGIN
+UPDATE forums SET posts = posts + 1 WHERE slug = NEW.forum;
+RETURN NULL;
+END;
+  $$
+LANGUAGE 'plpgsql';
+
+CREATE OR REPLACE FUNCTION add_thread()
+    RETURNS trigger AS
+  $$
+BEGIN
+UPDATE forums SET threads = threads + 1 WHERE slug = NEW.forum;
+RETURN NULL;
+END;
+  $$
+LANGUAGE 'plpgsql';
+
 CREATE TRIGGER set_vote AFTER INSERT ON votes
     FOR EACH ROW
     EXECUTE PROCEDURE update_vote();
@@ -108,4 +143,12 @@ CREATE TRIGGER set_vote AFTER INSERT ON votes
 CREATE TRIGGER update_vote AFTER update ON votes
     FOR EACH ROW
     EXECUTE PROCEDURE change_vote();
+
+CREATE TRIGGER add_post AFTER INSERT ON posts
+    FOR EACH ROW
+    EXECUTE PROCEDURE add_post();
+
+CREATE TRIGGER add_thread AFTER INSERT ON threads
+    FOR EACH ROW
+    EXECUTE PROCEDURE add_thread();
 

@@ -56,16 +56,6 @@ func (f ForumUC) GetForum(slug string) (models.Forum, *models.CustomError) {
 	if err != nil {
 		return frm, err
 	}
-	count, err := f.repo.CountPosts(frm.Slug)
-	if err != nil {
-		return frm, err
-	}
-	frm.Posts = count
-	cnt, err := f.repo.CountThreads(frm.Slug)
-	if err != nil {
-		return frm, err
-	}
-	frm.Threads = cnt
 
 	return frm, nil
 }
@@ -90,8 +80,6 @@ func (f ForumUC) GetPostDetails(id int64, params string) (models.PostFull, *mode
 		if err != nil {
 			return models.PostFull{}, err
 		}
-		frm.Posts, err = f.repo.CountPosts(frm.Slug)
-		frm.Threads, err = f.repo.CountThreads(frm.Slug)
 		answer.Forum = &frm
 	}
 	if strings.Contains(params, "thread") {
@@ -99,12 +87,7 @@ func (f ForumUC) GetPostDetails(id int64, params string) (models.PostFull, *mode
 		if err != nil {
 			return models.PostFull{}, err
 		}
-		votes, err := f.repo.GetVotes(thread.Id)
 
-		if err != nil {
-			return models.PostFull{}, err
-		}
-		thread.Votes = votes
 		answer.Thread = &thread
 	}
 
@@ -127,9 +110,6 @@ func (f ForumUC) GetForumThreads(slug string, limit int, since time.Time, desc b
 	threads, err := f.repo.GetForumThreads(slug, limit, since, desc)
 	if err != nil {
 		return models.Threads{}, err
-	}
-	for _, elem := range threads {
-		elem.Votes , _ = f.repo.GetVotes(elem.Id)
 	}
 	return threads, nil
 }
@@ -353,7 +333,7 @@ func (f ForumUC) GetPosts(slugOrId string, limit int, since int64, desc bool, so
 		if err != nil {
 			return posts, err
 		}
-		return f.repo.GetPostsChild(slugOrId, desc, parents)
+		return parents, nil
 
 	}
 	return posts, nil

@@ -11,7 +11,7 @@ tech-db-forum.dat.gz
 main
 # Test binary, built with `go test -c`
 *.test
-
+tech-db-forum.best.txt
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
