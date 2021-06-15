@@ -6,7 +6,7 @@ import (
 	"errors"
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jackc/pgx"
-	"github.com/jackc/pgx/pgxpool"
+	"github.com/jackc/pgx/v4/pgxpool"
 	forum "github.com/moroz-matros/technopark_db/application/app"
 	"github.com/moroz-matros/technopark_db/application/app/models"
 	"net/http"

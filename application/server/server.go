@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"github.com/jackc/pgx/pgxpool"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/echo"
 	"github.com/moroz-matros/technopark_db/application/app/delivery/http"
 	"github.com/moroz-matros/technopark_db/application/app/repository"
@@ -21,10 +21,6 @@ func NewServer() *Server {
 	e := echo.New()
 
 	pool, err := pgxpool.Connect(context.Background(), constants.DBConnect)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = pool.Ping(context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}
