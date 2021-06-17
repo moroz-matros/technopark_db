@@ -1,7 +1,3 @@
- create user postgre with password 'postgre';
- create database forum owner postgre;
- grant all privileges on database forum to postgre;
-
 CREATE EXTENSION citext;
 
 create unlogged table if not exists users
