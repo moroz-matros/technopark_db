@@ -1,15 +1,17 @@
-CREATE EXTENSION citext;
+--CREATE EXTENSION citext;
 
 create unlogged table if not exists users
 (
     id bigserial primary key,
-    nickname citext unique not null,
+    nickname citext COLLATE "C" unique not null,
     fullname text,
     about    text,
     email    citext unique not null
 );
 
-create index idx_nickname on users using hash(nickname);
+create index idx_users_nickname on users using hash(nickname);
+
+create index idx_users_email on users using hash(email);
 
 create unlogged table if not exists forums (
     id bigserial primary key,
@@ -20,7 +22,6 @@ create unlogged table if not exists forums (
     threads bigint default 0,
     foreign key (u) References users(nickname)
 );
-
 
 create index idx_forum_slug on forums using hash(slug);
 
@@ -38,6 +39,8 @@ create unlogged table if not exists threads (
 );
 
 create index idx_thread_slug on threads using hash(slug);
+create index idx_thread_forum on threads(forum);
+create index idx_thread_forum_created on threads(forum, created);
 
 create unlogged table if not exists posts (
     id bigserial primary key,
@@ -53,7 +56,9 @@ create unlogged table if not exists posts (
     foreign key (forum) references forums(slug)
 );
 
-create index idx_posts_thread on posts using hash(thread);
+create index idx_posts_thread on posts (thread);
+create index idx_posts_path on posts (path);
+create index idx_posts_forum on posts (forum);
 
 CREATE OR REPLACE FUNCTION update_posts()
     RETURNS trigger AS
@@ -91,7 +96,7 @@ create unlogged table if not exists votes (
     foreign key (u) references users(nickname)
 );
 
-create index idx_find_votes on votes(thread_id, u);
+create index idx_find_votes on votes(u,thread_id);
 
 CREATE OR REPLACE FUNCTION update_vote()
     RETURNS trigger AS
@@ -149,3 +154,42 @@ CREATE TRIGGER add_thread AFTER INSERT ON threads
     FOR EACH ROW
     EXECUTE PROCEDURE add_thread();
 
+create unlogged table if not exists forum_users (
+    forum citext not null,
+    u citext COLLATE "C" not null,
+--добавить все о юзере
+    unique(forum, u),
+    foreign key (forum) references forums(slug),
+    foreign key (u) references users(nickname)
+);
+
+create index idx_fu_all on forum_users(forum,u);
+
+CREATE OR REPLACE FUNCTION add_user_to_forum_thread()
+    RETURNS trigger AS
+  $$
+BEGIN
+insert into forum_users (forum, u) values (new.forum, new.author) on conflict do nothing;
+RETURN NULL;
+END;
+  $$
+LANGUAGE 'plpgsql';
+
+CREATE OR REPLACE FUNCTION add_user_to_forum_post()
+    RETURNS trigger AS
+  $$
+BEGIN
+insert into forum_users (forum, u) values (new.forum, new.author) on conflict do nothing;
+RETURN NULL;
+END;
+  $$
+LANGUAGE 'plpgsql';
+
+
+CREATE TRIGGER add_user_forum_thread AFTER INSERT ON threads
+    FOR EACH ROW
+    EXECUTE PROCEDURE add_user_to_forum_thread();
+
+CREATE TRIGGER add_user_forum_post AFTER INSERT ON posts
+    FOR EACH ROW
+    EXECUTE PROCEDURE add_user_to_forum_post();

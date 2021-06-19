@@ -18,24 +18,6 @@ type Database struct {
 	pool   *pgxpool.Pool
 }
 
-func (d Database) CheckParentPost(threadId int32, postId int64) (bool, *models.CustomError) {
-	var thread int32
-	err := d.pool.QueryRow(context.Background(),
-		`SELECT thread
-		FROM posts 
-		WHERE id = $1`, postId).Scan(&thread)
-	if thread != threadId {
-		return false, nil
-	}
-	if err != nil {
-		return false, &models.CustomError{
-			Code:    500,
-			Message: err.Error(),
-		}
-	}
-	return true, nil
-}
-
 func (d Database) GetPostsParent(slugOrId string, limit int, since int64, desc bool) (models.Posts, *models.CustomError) {
 	posts := models.Posts{}
 	var order, slug string
@@ -107,42 +89,7 @@ func (d Database) GetPostsParent(slugOrId string, limit int, since int64, desc b
 	return posts, nil
 }
 
-func (d Database) GetPostsChild(slugOrId string, desc bool, posts models.Posts) (models.Posts, *models.CustomError) {
-	var order string
-	var children models.Posts
-	if desc {
-		order = "DESC"
-	} else {
-		order = "ASC"
-	}
-
-	newPosts := models.Posts{}
-	for _, elem := range posts {
-		path := elem.Path + "."
-		err := pgxscan.Select(context.Background(), d.pool, &children,
-			`SELECT p.id, p.parent, p.author, p.message, 
-		p.is_edited, p.forum, p.thread, p.created
-		FROM posts p WHERE p.thread = $1 AND 
-		LEFT(p.path, length($2)) = $2 
-		ORDER BY p.path ASC, p.created ` + order +`, p.id ASC`,
-		elem.Thread, path)
-		if err != nil {
-			return models.Posts{}, &models.CustomError{
-				Code:    500,
-				Message: err.Error(),
-			}
-		}
-		newPosts = append(newPosts, elem)
-		for _, child := range children {
-			newPosts = append(newPosts, child)
-		}
-		children = children[:0]
-
-	}
-
-	return newPosts, nil
-}
-
+// TODO: оптимизировать
 func (d Database) GetPostsFlat(slugOrId string, limit int, since int64, desc bool) (models.Posts, *models.CustomError) {
 	posts := models.Posts{}
 	var order, slug string
@@ -194,9 +141,8 @@ func (d Database) GetPostsFlat(slugOrId string, limit int, since int64, desc boo
 			err = pgxscan.Select(context.Background(), d.pool, &posts,
 				`SELECT p.id, p.parent, p.author, p.message, 
 		p.is_edited, p.forum, p.thread, p.created
-		FROM posts p 
-		JOIN threads t ON t.slug = $1 AND p.thread = t.id
-		WHERE thread = (select id from threads where slug = $1) AND p.id `+s+` $2
+		FROM posts p
+		WHERE p.thread = (select id from threads where slug = $1) AND p.id `+s+` $2
 		ORDER BY p.id ` + order +
 					` LIMIT $3   `, slug, since, limit)
 		}
@@ -333,6 +279,8 @@ func (d Database) CheckUser(nickname string) (string, bool, *models.CustomError)
 	return nickname, true, nil
 }
 
+// TODO: оптимизировать
+
 func (d Database) CheckForumBySlug(slug string) (string, bool, *models.CustomError) {
 	var name string
 	err := d.pool.
@@ -351,6 +299,7 @@ func (d Database) CheckForumBySlug(slug string) (string, bool, *models.CustomErr
 	return name, true, nil
 }
 
+// TODO: оптимизировать
 func (d Database) GetForum(slug string) (models.Forum, *models.CustomError) {
 	var f models.Forum
 	err := d.pool.QueryRow(context.Background(),
@@ -391,6 +340,7 @@ func (d Database) GetUserByPost(postId int64) (models.User, *models.CustomError)
 	return user, nil
 }
 
+// TODO: оптимизировать
 func (d Database) GetForumThreads(slug string, limit int, since time.Time, desc bool) (models.Threads, *models.CustomError) {
 	threads := models.Threads{}
 	var order string
@@ -439,29 +389,18 @@ func (d Database) GetForumUsers(slug string, limit int, since string, desc bool)
 	var err error
 	if since != "" {
 		err = pgxscan.Select(context.Background(), d.pool, &users,
-			`SELECT nickname, fullname, about, email from(
-					SELECT nickname, fullname, about, email
-					FROM users
-					JOIN threads t ON t.author = nickname AND t.forum = $1
-					WHERE CAST(lower(nickname) as bytea) ` + s + ` CAST(lower($2) as bytea)
-					UNION
-					SELECT nickname, fullname, about, email
-					FROM users
-					JOIN posts p ON p.author = nickname AND p.forum = $1
-					WHERE CAST(lower(nickname) as bytea) ` + s + ` CAST(lower($2) as bytea)) help
-				ORDER BY CAST(lower(nickname) as bytea) `+order+` 
+			`SELECT u.nickname, u.fullname, u.about, u.email 
+					from users u, forum_users fu
+					WHERE fu.forum = $1 and u.nickname = fu.u and
+					u.nickname ` + s + ` $2
+				ORDER BY u.nickname `+order+` 
 				LIMIT $3;`, slug, since, limit)
 	} else {
 		err = pgxscan.Select(context.Background(), d.pool, &users,
-			`SELECT nickname, fullname, about, email from(
-					SELECT nickname, fullname, about, email
-					FROM users
-					JOIN threads t ON t.author = nickname AND t.forum = $1
-					UNION
-					SELECT nickname, fullname, about, email
-					FROM users
-					JOIN posts p ON p.author = nickname AND p.forum = $1) help
-				ORDER BY CAST(lower(nickname) as bytea) `+order+` 
+			`SELECT u.nickname, u.fullname, u.about, u.email 
+					from users u, forum_users fu
+					WHERE fu.forum = $1 and u.nickname = fu.u
+					ORDER BY u.nickname `+order+` 
 				LIMIT $2;`, slug, limit)
 	}
 
@@ -519,20 +458,6 @@ func (d Database) CreateThread(thread models.Thread, data time.Time) (models.Thr
 	return thread, nil
 }
 
-func (d Database) CountThreads(frm string) (int32, *models.CustomError) {
-	var count int32
-	err := d.pool.
-		QueryRow(context.Background(),
-			`SELECT COUNT (*) FROM threads WHERE forum = $1`, frm).Scan(&count)
-	if err != nil && !errors.As(err, &sql.ErrNoRows) {
-		return 0, &models.CustomError{
-			Code:    500,
-			Message: err.Error(),
-		}
-	}
-
-	return count, nil
-}
 
 func (d Database) CountPosts(frm string) (int64, *models.CustomError) {
 	var count int64
@@ -587,7 +512,7 @@ func (d Database) UpdatePost(postId int64, newPost models.PostUpdate) (models.Po
 	return editedPost, nil
 }
 
-
+// TODO: оптимизировать
 func (d Database) GetPostById(id int64) (models.Post, *models.CustomError) {
 	var post models.Post
 	err := d.pool.QueryRow(context.Background(),
@@ -652,7 +577,7 @@ func (d Database) GetForumByPost(postId int64) (models.Forum, *models.CustomErro
 
 func (d Database) ClearAll() *models.CustomError {
 	_, err := d.pool.Exec(context.Background(),
-		`TRUNCATE users, forums, threads, posts, votes`)
+		`TRUNCATE users, forums, threads, posts, votes, forum_users`)
 	if err != nil {
 		return &models.CustomError{
 			Code:    500,
