@@ -43,15 +43,15 @@ func (d Database) GetPostsParent(slugOrId string, limit int, since int64, desc b
 			err = pgxscan.Select(context.Background(), d.pool, &posts,
 				`SELECT p.id, p.parent, p.author, p.message, 
 		p.is_edited, p.forum, p.thread, p.created
-		FROM posts p WHERE p.path[2] in (select id from posts where thread = $1 and path[3] IS NULL order by id `+ order+` LIMIT $2)
-		ORDER BY p.path[2] ` + order +`,p.path ASC, p.id ASC`, id, limit)
+		FROM posts p WHERE p.way[2] in (select id from posts where thread = $1 and way[3] IS NULL order by id `+ order+` LIMIT $2)
+		ORDER BY p.way[2] ` + order +`,p.way ASC, p.id ASC`, id, limit)
 		} else {
 			err = pgxscan.Select(context.Background(), d.pool, &posts,
 				`SELECT p.id, p.parent, p.author, p.message, 
 		p.is_edited, p.forum, p.thread, p.created
-		FROM posts p WHERE p.path[2] in (select id from posts where thread = $1 and path[3] IS NULL
-		and path[2] `+ s + `(SELECT path[2] FROM posts where id = $2) order by id `+ order+` LIMIT $3)
-		ORDER BY p.path[2] ` + order +`,p.path ASC, p.id ASC`, id, since, limit)
+		FROM posts p WHERE p.way[2] in (select id from posts where thread = $1 and way[3] IS NULL
+		and way[2] `+ s + `(SELECT way[2] FROM posts where id = $2) order by id `+ order+` LIMIT $3)
+		ORDER BY p.way[2] ` + order +`,p.way ASC, p.id ASC`, id, since, limit)
 		}
 
 	} else {
@@ -60,16 +60,16 @@ func (d Database) GetPostsParent(slugOrId string, limit int, since int64, desc b
 				`SELECT p.id, p.parent, p.author, p.message, 
 		p.is_edited, p.forum, p.thread, p.created
 		FROM posts p 
-		 WHERE p.path[2] in (select id from posts where thread = (select id from threads where slug = $1) and path[3] IS NULL order by id `+ order+` LIMIT $2)
-		ORDER BY p.path[2] ` + order +`,p.path ASC, p.id ASC`, slug, limit)
+		 WHERE p.way[2] in (select id from posts where thread = (select id from threads where slug = $1) and way[3] IS NULL order by id `+ order+` LIMIT $2)
+		ORDER BY p.way[2] ` + order +`,p.way ASC, p.id ASC`, slug, limit)
 		} else {
 			err = pgxscan.Select(context.Background(), d.pool, &posts,
 				`SELECT p.id, p.parent, p.author, p.message, 
 		p.is_edited, p.forum, p.thread, p.created
 		FROM posts p
-		WHERE p.path[2] in (select id from posts where thread = (select id from threads where slug = $1) and path[3] IS NULL
-	and path[2] `+ s + `(SELECT path[2] FROM posts where id = $2) order by id `+ order+` LIMIT $3)
-		ORDER BY p.path[2] ` + order +`, p.path ASC, p.id ASC`, slug, since, limit)
+		WHERE p.way[2] in (select id from posts where thread = (select id from threads where slug = $1) and way[3] IS NULL
+	and way[2] `+ s + `(SELECT way[2] FROM posts where id = $2) order by id `+ order+` LIMIT $3)
+		ORDER BY p.way[2] ` + order +`, p.way ASC, p.id ASC`, slug, since, limit)
 		}
 
 	}
@@ -191,15 +191,15 @@ func (d Database) GetPostsTree(slugOrId string, limit int, since int64, desc boo
 				`SELECT p.id, p.parent, p.author, p.message, 
 		p.is_edited, p.forum, p.thread, p.created
 		FROM posts p WHERE p.thread = $1 
-		ORDER BY p.path ` + order +`, p.created ` + order +`, p.id ASC` +
+		ORDER BY p.way ` + order +`, p.created ` + order +`, p.id ASC` +
 					` LIMIT $2   `, id, limit)
 		} else {
 			err = pgxscan.Select(context.Background(), d.pool, &posts,
 				`SELECT p.id, p.parent, p.author, p.message, 
 		p.is_edited, p.forum, p.thread, p.created
 		FROM posts p WHERE p.thread = $1 AND
-		path `+ s + `(SELECT path FROM posts where id = $2)
-		ORDER BY p.path ` + order +`, p.created ` + order +`, p.id ASC` +
+		way `+ s + `(SELECT way FROM posts where id = $2)
+		ORDER BY p.way ` + order +`, p.created ` + order +`, p.id ASC` +
 					` LIMIT $3   `, id, since, limit)
 		}
 
@@ -210,7 +210,7 @@ func (d Database) GetPostsTree(slugOrId string, limit int, since int64, desc boo
 		p.is_edited, p.forum, p.thread, p.created
 		FROM posts p 
 		JOIN threads t ON t.slug = $1 AND p.thread = t.id
-		ORDER BY p.path ` + order +`, p.created ` + order +`, p.id ASC` +
+		ORDER BY p.way ` + order +`, p.created ` + order +`, p.id ASC` +
 					` LIMIT $2   `, slug, limit)
 		} else {
 			err = pgxscan.Select(context.Background(), d.pool, &posts,
@@ -218,8 +218,8 @@ func (d Database) GetPostsTree(slugOrId string, limit int, since int64, desc boo
 		p.is_edited, p.forum, p.thread, p.created
 		FROM posts p 
 		JOIN threads t ON t.slug = $1 AND p.thread = t.id
-		WHERE path `+ s + `(SELECT path FROM posts where id = $2)
-		ORDER BY p.path ` + order +`, p.created ` + order +`, p.id ASC` +
+		WHERE way `+ s + `(SELECT way FROM posts where id = $2)
+		ORDER BY p.way ` + order +`, p.created ` + order +`, p.id ASC` +
 					` LIMIT $3   `, slug, since, limit)
 		}
 	}
@@ -389,18 +389,18 @@ func (d Database) GetForumUsers(slug string, limit int, since string, desc bool)
 	var err error
 	if since != "" {
 		err = pgxscan.Select(context.Background(), d.pool, &users,
-			`SELECT u.nickname, u.fullname, u.about, u.email 
-					from users u, forum_users fu
-					WHERE fu.forum = $1 and u.nickname = fu.u and
-					u.nickname ` + s + ` $2
-				ORDER BY u.nickname `+order+` 
+			`SELECT u as nickname, fullname, about, email 
+					from forum_users 
+					WHERE forum = $1 and
+					u ` + s + ` $2
+				ORDER BY u `+order+` 
 				LIMIT $3;`, slug, since, limit)
 	} else {
 		err = pgxscan.Select(context.Background(), d.pool, &users,
-			`SELECT u.nickname, u.fullname, u.about, u.email 
-					from users u, forum_users fu
-					WHERE fu.forum = $1 and u.nickname = fu.u
-					ORDER BY u.nickname `+order+` 
+			`SELECT u as nickname, fullname, about, email  
+					from forum_users 
+					WHERE forum = $1 
+					ORDER BY u `+order+` 
 				LIMIT $2;`, slug, limit)
 	}
 

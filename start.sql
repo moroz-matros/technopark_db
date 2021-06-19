@@ -10,7 +10,6 @@ create unlogged table if not exists users
 );
 
 create index idx_users_nickname on users using hash(nickname);
-
 create index idx_users_email on users using hash(email);
 
 create unlogged table if not exists forums (
@@ -51,33 +50,34 @@ create unlogged table if not exists posts (
     forum citext not null,
     thread bigint references threads (id),
     created timestamp with time zone,
-    path bigint[],
+    way bigint[],
     foreign key (author) references users(nickname),
     foreign key (forum) references forums(slug)
 );
 
 create index idx_posts_thread on posts (thread);
-create index idx_posts_path on posts (path);
+create index idx_posts_way on posts (way);
+create index idx_posts_way2 on posts ((way[2]));
 create index idx_posts_forum on posts (forum);
 
 CREATE OR REPLACE FUNCTION update_posts()
     RETURNS trigger AS
   $$
 declare
-parent_path   bigint[];
+parent_way   bigint[];
 parent_thread   bigint;
     BEGIN
     if (new.parent = 0) then
-        new.path = array[0,new.id];
+        new.way = array[0,new.id];
     else
-        select p.path, p.thread
+        select p.way, p.thread
         from posts p
         where p.id = new.parent
-        into parent_path, parent_thread;
+        into parent_way, parent_thread;
         if parent_thread != new.thread or parent_thread is null then
             RAISE EXCEPTION USING ERRCODE = '00409';
         end if;
-        new.path := parent_path || new.id;
+        new.way := parent_way || new.id;
     end if;
     RETURN NEW;
     END;
@@ -85,7 +85,7 @@ parent_thread   bigint;
 LANGUAGE 'plpgsql';
 
 
-CREATE TRIGGER set_path BEFORE INSERT ON posts
+CREATE TRIGGER set_way BEFORE INSERT ON posts
     FOR EACH ROW
     EXECUTE PROCEDURE update_posts();
 
@@ -157,7 +157,9 @@ CREATE TRIGGER add_thread AFTER INSERT ON threads
 create unlogged table if not exists forum_users (
     forum citext not null,
     u citext COLLATE "C" not null,
---добавить все о юзере
+    fullname text,
+    about    text,
+    email    citext,
     unique(forum, u),
     foreign key (forum) references forums(slug),
     foreign key (u) references users(nickname)
@@ -169,7 +171,7 @@ CREATE OR REPLACE FUNCTION add_user_to_forum_thread()
     RETURNS trigger AS
   $$
 BEGIN
-insert into forum_users (forum, u) values (new.forum, new.author) on conflict do nothing;
+insert into forum_users (forum, u, fullname, about, email) select new.forum, new.author, fullname, about, email from users where new.author = nickname on conflict do nothing;
 RETURN NULL;
 END;
   $$
@@ -179,7 +181,7 @@ CREATE OR REPLACE FUNCTION add_user_to_forum_post()
     RETURNS trigger AS
   $$
 BEGIN
-insert into forum_users (forum, u) values (new.forum, new.author) on conflict do nothing;
+insert into forum_users (forum, u, fullname, about, email) select new.forum, new.author, fullname, about, email from users where new.author = nickname on conflict do nothing;
 RETURN NULL;
 END;
   $$
