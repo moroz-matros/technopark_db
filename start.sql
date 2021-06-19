@@ -1,4 +1,4 @@
---CREATE EXTENSION citext;
+CREATE EXTENSION citext;
 
 create unlogged table if not exists users
 (
@@ -166,6 +166,7 @@ create unlogged table if not exists forum_users (
 );
 
 create index idx_fu_all on forum_users(forum,u);
+create index idx_fu_forum on forum_users(forum);
 
 CREATE OR REPLACE FUNCTION add_user_to_forum_thread()
     RETURNS trigger AS
